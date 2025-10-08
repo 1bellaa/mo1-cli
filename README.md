@@ -28,8 +28,8 @@ Support basic process instructions, akin to programming language instructions
 
 | Instruction | Description |
 |-------------|-------------|
-| `PRINT (msg)` | Display an output “msg” to the console. The output can only be seen when the user is inside its attached screen. The “msg” can print 1 variable, “var.” E.g. `PRINT (“Value from: ” +x)` |
-| `DECLARE (var, value)` | Declares a uint16 with variable name “var”, and a default “value”. |
+| `PRINT (msg)` | Display an output â€œmsgâ€ to the console. The output can only be seen when the user is inside its attached screen. The â€œmsgâ€ can print 1 variable, â€œvar.â€ E.g. `PRINT (â€œValue from: â€ +x)` |
+| `DECLARE (var, value)` | Declares a uint16 with variable name â€œvarâ€, and a default â€œvalueâ€. |
 | `ADD (var1, var2/value, var3/value)` | Performs an addition operation: `var1 = var2/value + var3/value`. `var1`, `var2`, `var3` are variables. Variables are automatically declared with a value of 0 if they have not yet been declared beforehand. Can also add a uint16 value. |
 | `SUBTRACT (var1, var2/value, var3/value)` | Performs a subtraction operation: `var1 = var2/value - var3/value` |
 | `SLEEP (X)` | Sleeps the current process for X (uint8) CPU ticks and relinquishes the CPU. |
@@ -69,3 +69,21 @@ The `initialize` commands should read from a `config.txt` file, the parameters f
 `Config.cpp` and `Config.h` to handle the configuration file reading.
 
 ## How to Run
+
+1. Open the folder using Visual Studio
+2. Go to File -> Open -> Project/Solution and open the `mco1-cli.sln` file.
+3. Run the program!
+
+***If it's not yet a project (no `.sln` file)***
+
+1. File > New > Project From Existing Code..
+2. Select Visual C++
+3. Browse to the folder of the cloned repository
+4. Follow the next steps, then click Finish
+
+***If encountering an "unresolved externals" issue***
+
+1. Right click on the project in the Solution Explorer, then select Properties
+2. Linker > System
+3. Set Subsystem to `Console (/SUBSYSTEM:CONSOLE)` using the dropdown
+4. Apply and rebuild
