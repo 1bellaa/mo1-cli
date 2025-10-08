@@ -10,13 +10,14 @@ _project description here_
 
 ## Requirements
 
-1. Main menu console and `Screen` command support
+1. Main menu console and `screen` command support
 
 | Command | Description |
 |---------|-------------|
 | `initialize` | Initialize the processor configuration of the application. This must be called before any other command could be recognized, aside from `exit`. |
 | `exit` | Terminates the console. |
 | `screen -s <process name>` | Create a new process. |
+| `screen -r <process name>` | Access a process. |
 | `screen -ls` | Lists all running processes. |
 | `scheduler-start` | Continuously generates a batch of dummy processes for the CPU scheduler. Each process is accessible via the `screen` command. |
 | `scheduler-stop` | Stops generating dummy processes. |
@@ -36,7 +37,7 @@ Support basic process instructions, akin to programming language instructions
 
 3. Generation of CPU utilization report
 
-The console should be able to generate a utilization report whenever the “report-util” command is entered.
+The console should be able to generate a utilization report whenever the `report-util` command is entered.
 
 4. Configuration setting
 
@@ -46,8 +47,25 @@ The `initialize` commands should read from a `config.txt` file, the parameters f
 
 1. Main menu console
 
-Implementation
+**Checklist (to remove)**
+[] Main menu console and `screen` command support  
 
-Command Recognition
+- so far, i implemented `Console.cpp` and `Console.h` to handle the main menu console and the screen command. 
+- for example you call the `screen -s <process name>` command, it will create a new process with the given name.
+- if you call the `screen -ls` command, it will list all the running processes in a new console window i guess??
+
+[] Process creation and management
+
+`Process.cpp` and `Process.h` to handle the process creation and management.
+
+[] Barebones process instructions  
+
+`Scheduler.cpp` and `Scheduler.h` to handle the CPU scheduling. 
+
+[] Generation of CPU utilization report  
+
+[] Configuration setting
+
+`Config.cpp` and `Config.h` to handle the configuration file reading.
 
 ## How to Run
