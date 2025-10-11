@@ -16,7 +16,7 @@ void Welcome() {
     cout << "Welcome to CSOPESY Emulator!" << endl;
     cout << "\nGroup developer:" << endl;
     cout << "Lim, Nathan\nMagabo, Julianna\nManlapig, Rachel\nSanchez, Jeck" << endl;
-    cout << "\nLast Updated: 10-08-2025" << endl;
+    cout << "\nLast Updated: 10-11-2025" << endl;
     cout << "-----------------------------------------------" << endl;
 }
 

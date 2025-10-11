@@ -2,25 +2,33 @@
 #define CONSOLE_H
 
 #include <string>
-#include <iostream>
-#include <map>
-#include <set>
+#include <thread>
+#include <atomic>
+#include "scheduler.h"
 
 using namespace std;
 
 class Console {
-    bool initialized = false; // girl idk maybe this is right
-    map<string, string> screens; // para magamit sa list screens eme
-    set<string> activeScreens; // para malaman yung mga processes i guess?? na hindi pa tapos
-    //void ProcessSmi(); // add code later, but this is also a command
-    //void ScreenCommands(const string& name); // commands like process-smi, exit
+private:
+    bool initialized;
+    Scheduler scheduler;
+    thread* tickThread;
+    atomic<bool> shouldRunTicks;
+
+    void TickLoop();
+    void DisplayProcessScreen(Process* proc);
 
 public:
+    Console();
+    ~Console();
+
     void Initialize();
-    bool IsInitialized();
-    void CreateScreen(const string& name);
+    bool IsInitialized() const { return initialized; }
+
+    void CreateScreen(const string& processName);
+    void SearchScreen(const string& processName);
     void ListScreens();
-    void SearchScreen(const string& name);
+
     void SchedulerStart();
     void SchedulerStop();
     void ReportUtil();

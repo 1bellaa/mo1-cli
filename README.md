@@ -51,7 +51,6 @@ The `initialize` commands should read from a `config.txt` file, the parameters f
 [] Main menu console and `screen` command support  
 
 - so far, i implemented `Console.cpp` and `Console.h` to handle the main menu console and the screen command. 
-- for example you call the `screen -s <process name>` command, it will create a new process with the given name.
 - if you call the `screen -ls` command, it will list all the running processes in a new console window i guess??
 
 [] Process creation and management
@@ -66,18 +65,18 @@ The `initialize` commands should read from a `config.txt` file, the parameters f
 
 [] Configuration setting
 
-`Config.cpp` and `Config.h` to handle the configuration file reading.
+Handled by `scheduler.cpp` and `scheduler.h`
 
 ## How to Run
 
 1. Open the folder using Visual Studio
-2. Go to File -> Open -> Project/Solution and open the `mco1-cli.sln` file.
+2. Go to **File -> Open -> Project/Solution** and open the `mco1-cli.sln` file.
 3. Run the program!
 
-***If it's not yet a project (no `.sln` file)***
+***If it's not yet a project (or no `.sln` file)***
 
-1. File > New > Project From Existing Code..
-2. Select Visual C++
+1. **File > New > Project From Existing Code..**
+2. Select **Visual C++**
 3. Browse to the folder of the cloned repository
 4. Follow the next steps, then click Finish
 
