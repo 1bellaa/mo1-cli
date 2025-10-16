@@ -45,6 +45,13 @@ The `initialize` commands should read from a `config.txt` file, the parameters f
 
 ## Implementation
 
+Command recognition
+Console UI implementation
+Command interpreter implementation
+Process representation
+Scheduler implementation
+
+
 1. Main menu console
 
 **Checklist (to remove)**

@@ -30,12 +30,13 @@ private:
     int waitCycles;
     int executionTime;
     int delayCounter;
+    time_t finishTime;
 
 public:
     Process(string processName, int processId, int numInstructions, int delaysPerExec);
     ~Process();
 
-    void Execute();
+    void Execute(int coreId);
     bool IsFinished() const;
     void PrintInfo() const;
 
@@ -57,6 +58,9 @@ public:
 
     uint16_t GetVariable(const string& varName);
     void SetVariable(const string& varName, uint16_t value);
+
+    void SetFinishTime(time_t t) { finishTime = t; }
+    time_t GetFinishTime() const { return finishTime; }
 };
 
 #endif

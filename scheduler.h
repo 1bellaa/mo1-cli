@@ -14,6 +14,16 @@ enum SchedulerType {
     ROUND_ROBIN
 };
 
+struct Config {
+    int numCPU = 4;
+    SchedulerType type = ROUND_ROBIN;
+    int quantumCycles = 5;
+    int batchProcessFreq = 1;
+    int minIns = 1000;
+    int maxIns = 2000;
+    int delaysPerExec = 0;
+};
+
 class Scheduler {
 private:
     SchedulerType type;
@@ -35,6 +45,8 @@ private:
     int processCounter;
     bool isRunning;
 
+    Config config;
+
     void LoadConfig(const string& filename);
     void ScheduleNext(int coreId);
 
@@ -47,7 +59,7 @@ public:
     void Start();
     void Stop();
 
-    void CreateProcess(const string& name);
+    void CreateNewProcess(const string& name);
     Process* GetProcess(const string& name);
     vector<Process*> GetAllProcesses() const { return allProcesses; }
 
@@ -60,6 +72,8 @@ public:
 
     vector<Process*> GetRunningProcesses() const;
     vector<Process*> GetFinishedProcesses() const;
+
+    bool TryAssignProcess(Process* proc);
 };
 
 #endif

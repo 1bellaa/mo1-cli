@@ -32,6 +32,8 @@ public:
     void SchedulerStart();
     void SchedulerStop();
     void ReportUtil();
+
+	void ShowSchedulerLog(); // temporary, will remove later
 };
 
 #endif
