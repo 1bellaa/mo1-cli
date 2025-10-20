@@ -45,34 +45,14 @@ The `initialize` commands should read from a `config.txt` file, the parameters f
 
 ## Implementation
 
-Command recognition
-Console UI implementation
-Command interpreter implementation
-Process representation
-Scheduler implementation
-
-
-1. Main menu console
-
-**Checklist (to remove)**
-[] Main menu console and `screen` command support  
-
-- so far, i implemented `Console.cpp` and `Console.h` to handle the main menu console and the screen command. 
-- if you call the `screen -ls` command, it will list all the running processes in a new console window i guess??
-
-[] Process creation and management
-
-`Process.cpp` and `Process.h` to handle the process creation and management.
-
-[] Barebones process instructions  
-
-`Scheduler.cpp` and `Scheduler.h` to handle the CPU scheduling. 
-
-[] Generation of CPU utilization report  
-
-[] Configuration setting
-
-Handled by `scheduler.cpp` and `scheduler.h`
+| File | Description |
+|------|-------------|
+| `emulator.cpp` | Entry point of the application. Contains the main loop for the command-line interpreter. |
+| `console.cpp` | Contains the implementation of the console commands and their respective functionalities. |
+| `process.cpp` | Contains the implementation of the Process class, which represents a process in the system. |
+| `scheduler.cpp` | Contains the implementation of the Scheduler class, which manages process scheduling and CPU utilization. |
+| `instructions.cpp` | Contains the implementation of the instruction set for processes, including parsing and execution of instructions. |
+| `config.txt` | Configuration file that contains parameters for CPU scheduler and process attributes. |
 
 ## How to Run
 
