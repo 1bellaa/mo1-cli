@@ -1,6 +1,6 @@
-# Process Multiplexer and Command-line Interpreter
+# Multitasking OS
 
-_project description here_
+A **Multitasking OS with Memory Management** that simulates a simple command-line interface (CLI) for process management, CPU scheduling, and memory visualization.
 
 **Group developer:** 
 - Lim, Nathan
@@ -10,69 +10,52 @@ _project description here_
 
 ## Requirements
 
-1. Main menu console and `screen` command support
+1. Main menu console 
+
+Aside from the commands previously implemented in MO1 (`initialize`, `exit`, `screen`, `scheduler-start`, and `scheduler-stop`), additional commands will be included and `screen` commands will be updated:
 
 | Command | Description |
 |---------|-------------|
-| `initialize` | Initialize the processor configuration of the application. This must be called before any other command could be recognized, aside from `exit`. |
-| `exit` | Terminates the console. |
-| `screen -s <process name>` | Create a new process. |
-| `screen -r <process name>` | Access a process. |
-| `screen -ls` | Lists all running processes. |
-| `scheduler-start` | Continuously generates a batch of dummy processes for the CPU scheduler. Each process is accessible via the `screen` command. |
-| `scheduler-stop` | Stops generating dummy processes. |
+| `process-smi` | Displays a summarized view of the available/used memory, as well as the list of processes and memory occupied. This is similar to the `nvidia-smi` command. |
+| `vmstat` | Displays a detailed view of the active/inactive processes, available/used memory, and pages. |
+| `screen -c` <process_name> <process_memory_size> "<instructions>" | Sends a string of instructions to be executed by the specified process. Instructions are semicolon-separated. Throws "invalid command" if the instruction size is not met. |
+| `screen -r <process name>` | If the process name has prematurely shut down due to a memory access violation error, the console should print "Process <process name> shut down due to memory access violation error that occurred at <HH:MM:SS>. <Hex memory address> invalid." |
+| `screen -s <process_name> <process_memory_size>` | Creates a new process with a given name and memory allocation. |
 
-2. Barebones process instructions
+2. Memory Manager
 
-Support basic process instructions, akin to programming language instructions
+The memory manager should handle the allocation and deallocation of memory for processes. It must support a demand paging allocator. 
+This means that the memory manager should be able to allocate memory pages to processes as needed, rather than allocating all memory at once.
+
+3. Memory visualization and backing store access
+
+The program should provide a way to visualize the memory usage of the processes. It will have a way to debug the memory, showing which pages are allocated to which processes, and which pages are free.
+The backing store is represented as a text file that can be accessed at any given time. It is saved in a text file `csopesy-backing-store.txt`.
+
+4. Required memory per process
+
+Using the `screen -s` command, the user should be able to specify the amount of memory (in bytes) that a process requires. The memory size must be a power of 2 and within the range of [64, 65536] bytes.
+
+5. Simulating memory access via process instruction
+
+Aside from the basic process instructions implemented in MO1 (`PRINT`, `DECLARE`, `ADD`, `SUBTRACT`, `SLEEP`, `FOR`), the following instructions should be supported:
 
 | Instruction | Description |
 |-------------|-------------|
-| `PRINT (msg)` | Display an output “msg” to the console. The output can only be seen when the user is inside its attached screen. The “msg” can print 1 variable, “var.” E.g. `PRINT (“Value from: ” +x)` |
-| `DECLARE (var, value)` | Declares a uint16 with variable name “var”, and a default “value”. |
-| `ADD (var1, var2/value, var3/value)` | Performs an addition operation: `var1 = var2/value + var3/value`. `var1`, `var2`, `var3` are variables. Variables are automatically declared with a value of 0 if they have not yet been declared beforehand. Can also add a uint16 value. |
-| `SUBTRACT (var1, var2/value, var3/value)` | Performs a subtraction operation: `var1 = var2/value - var3/value` |
-| `SLEEP (X)` | Sleeps the current process for X (uint8) CPU ticks and relinquishes the CPU. |
-| `FOR([instructions], repeats)` | Performs a for-loop, given a set/array of instructions. Can be nested. |
+| `READ (var, memory_address)` | Performs a retrieval of a uint16 value from memory and stores it to a variable, var. If the memory block isn’t initialized, the uint16 value is 0. |
+| `WRITE (memory_address, value)` | Writes uint16 value to the specified memory address. |
 
-3. Generation of CPU utilization report
+6. User-defined instructions during process creation
 
-The console should be able to generate a utilization report whenever the `report-util` command is entered.
+Using the `screen -c` command, the user should be able to send a string of 1 – 50 instructions to be executed by the specified process. Instructions are semicolon-separated. Throws “invalid command” if the instruction size is not met.
 
-4. Configuration setting
+7. Previous features from MO1
 
-The `initialize` commands should read from a `config.txt` file, the parameters for your CPU scheduler and process attributes.
+For more information about the previous features in MO1, please refer to the [MO1 README](https://github.com/1bellaa/mo1-cli/tree/mo1) file.
 
 ## Implementation
 
-Command recognition
-Console UI implementation
-Command interpreter implementation
-Process representation
-Scheduler implementation
-
-
-1. Main menu console
-
-**Checklist (to remove)**
-[] Main menu console and `screen` command support  
-
-- so far, i implemented `Console.cpp` and `Console.h` to handle the main menu console and the screen command. 
-- if you call the `screen -ls` command, it will list all the running processes in a new console window i guess??
-
-[] Process creation and management
-
-`Process.cpp` and `Process.h` to handle the process creation and management.
-
-[] Barebones process instructions  
-
-`Scheduler.cpp` and `Scheduler.h` to handle the CPU scheduling. 
-
-[] Generation of CPU utilization report  
-
-[] Configuration setting
-
-Handled by `scheduler.cpp` and `scheduler.h`
+_to add later_
 
 ## How to Run
 

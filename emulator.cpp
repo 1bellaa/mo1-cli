@@ -18,7 +18,7 @@ void Welcome() {
     cout << "Welcome to CSOPESY Emulator!" << endl;
     cout << "\nGroup developer:" << endl;
     cout << "Lim, Nathan\nMagabo, Julianna\nManlapig, Rachel\nSanchez, Jeck" << endl;
-    cout << "\nLast Updated: 10-16-2025" << endl;
+    cout << "\nLast Updated: 10-20-2025" << endl;
     cout << "-----------------------------------------------\n" << endl;
 }
 
@@ -40,6 +40,8 @@ int main() {
             console.SearchScreen(command.substr(10));
             Welcome();
         }
+		else if (command == "process-smi") {}
+		else if (command == "vmstat") {}
         else if (command == "scheduler-start") console.SchedulerStart();
         else if (command == "scheduler-stop") console.SchedulerStop();
         else if (command == "report-util") console.ReportUtil();

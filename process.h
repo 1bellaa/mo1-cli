@@ -32,6 +32,12 @@ private:
     int delayCounter;
     time_t finishTime;
 
+    size_t memorySize;
+    std::map<size_t, uint16_t> memoryMap;  // Virtual memory storage (address -> value)
+    bool hasMemoryViolation;
+    std::time_t violationTime;
+    size_t violationAddress;
+
 public:
     Process(string processName, int processId, int numInstructions, int delaysPerExec);
     ~Process();
@@ -61,6 +67,16 @@ public:
 
     void SetFinishTime(time_t t) { finishTime = t; }
     time_t GetFinishTime() const { return finishTime; }
+
+    size_t GetMemorySize() const { return memorySize; }
+    void SetMemorySize(size_t size) { memorySize = size; }
+	uint16_t ReadFromMemory(size_t address); // implement later
+	void WriteToMemory(size_t address, uint16_t value); // implement later
+
+    bool HasMemoryViolation() const { return hasMemoryViolation; } 
+    void SetMemoryViolation(size_t address); // implement later ndjkfns
+    std::time_t GetViolationTime() const { return violationTime; }
+    size_t GetViolationAddress() const { return violationAddress; }
 };
 
 #endif
