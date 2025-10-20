@@ -18,7 +18,7 @@ Aside from the commands previously implemented in MO1 (`initialize`, `exit`, `sc
 |---------|-------------|
 | `process-smi` | Displays a summarized view of the available/used memory, as well as the list of processes and memory occupied. This is similar to the `nvidia-smi` command. |
 | `vmstat` | Displays a detailed view of the active/inactive processes, available/used memory, and pages. |
-| `screen -c` <process_name> <process_memory_size> "<instructions>" | Sends a string of instructions to be executed by the specified process. Instructions are semicolon-separated. Throws "invalid command" if the instruction size is not met. |
+| `screen -c <process_name> <process_memory_size> "<instructions>"` | Sends a string of instructions to be executed by the specified process. Instructions are semicolon-separated. Throws "invalid command" if the instruction size is not met. |
 | `screen -r <process name>` | If the process name has prematurely shut down due to a memory access violation error, the console should print "Process <process name> shut down due to memory access violation error that occurred at <HH:MM:SS>. <Hex memory address> invalid." |
 | `screen -s <process_name> <process_memory_size>` | Creates a new process with a given name and memory allocation. |
 
