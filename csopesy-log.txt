@@ -1,0 +1,51 @@
+CPU Utilization: 100.00%
+Cores used: 4
+Cores available: 0
+-----------------------------------------------
+
+Running processes:
+process38   (2025-10-16 23:23:34 PM)   Core: 1   18/21
+process39   (2025-10-16 23:23:34 PM)   Core: 0   12/40
+process40   (2025-10-16 23:23:34 PM)   Core: 3   12/20
+process41   (2025-10-16 23:23:34 PM)   Core: 2   6/37
+process42   (2025-10-16 23:23:34 PM)   Core: -1   0/11
+
+Finished processes:
+process1   (2025-10-16 23:23:34 PM)   Finished   10/10
+process2   (2025-10-16 23:23:34 PM)   Finished   35/35
+process3   (2025-10-16 23:23:34 PM)   Finished   12/12
+process4   (2025-10-16 23:23:34 PM)   Finished   26/26
+process5   (2025-10-16 23:23:34 PM)   Finished   30/30
+process6   (2025-10-16 23:23:34 PM)   Finished   43/43
+process7   (2025-10-16 23:23:34 PM)   Finished   14/14
+process8   (2025-10-16 23:23:34 PM)   Finished   37/37
+process9   (2025-10-16 23:23:34 PM)   Finished   49/49
+process10   (2025-10-16 23:23:34 PM)   Finished   15/15
+process11   (2025-10-16 23:23:34 PM)   Finished   41/41
+process12   (2025-10-16 23:23:34 PM)   Finished   49/49
+process13   (2025-10-16 23:23:34 PM)   Finished   36/36
+process14   (2025-10-16 23:23:34 PM)   Finished   20/20
+process15   (2025-10-16 23:23:34 PM)   Finished   43/43
+process16   (2025-10-16 23:23:34 PM)   Finished   34/34
+process17   (2025-10-16 23:23:34 PM)   Finished   49/49
+process18   (2025-10-16 23:23:34 PM)   Finished   31/31
+process19   (2025-10-16 23:23:34 PM)   Finished   29/29
+process20   (2025-10-16 23:23:34 PM)   Finished   17/17
+process21   (2025-10-16 23:23:34 PM)   Finished   42/42
+process22   (2025-10-16 23:23:34 PM)   Finished   15/15
+process23   (2025-10-16 23:23:34 PM)   Finished   13/13
+process24   (2025-10-16 23:23:34 PM)   Finished   11/11
+process25   (2025-10-16 23:23:34 PM)   Finished   17/17
+process26   (2025-10-16 23:23:34 PM)   Finished   45/45
+process27   (2025-10-16 23:23:34 PM)   Finished   27/27
+process28   (2025-10-16 23:23:34 PM)   Finished   16/16
+process29   (2025-10-16 23:23:34 PM)   Finished   44/44
+process30   (2025-10-16 23:23:34 PM)   Finished   40/40
+process31   (2025-10-16 23:23:34 PM)   Finished   38/38
+process32   (2025-10-16 23:23:34 PM)   Finished   50/50
+process33   (2025-10-16 23:23:34 PM)   Finished   45/45
+process34   (2025-10-16 23:23:34 PM)   Finished   21/21
+process35   (2025-10-16 23:23:34 PM)   Finished   40/40
+process36   (2025-10-16 23:23:34 PM)   Finished   31/31
+process37   (2025-10-16 23:23:34 PM)   Finished   18/18
+-----------------------------------------------

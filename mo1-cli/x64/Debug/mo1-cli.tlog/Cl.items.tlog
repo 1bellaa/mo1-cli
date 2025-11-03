@@ -1,2 +1,5 @@
 C:\Users\Lenovo\source\repos\mo1-cli\console.cpp;C:\Users\Lenovo\source\repos\mo1-cli\mo1-cli\x64\Debug\console.obj
 C:\Users\Lenovo\source\repos\mo1-cli\emulator.cpp;C:\Users\Lenovo\source\repos\mo1-cli\mo1-cli\x64\Debug\emulator.obj
+C:\Users\Lenovo\source\repos\mo1-cli\instruction.cpp;C:\Users\Lenovo\source\repos\mo1-cli\mo1-cli\x64\Debug\instruction.obj
+C:\Users\Lenovo\source\repos\mo1-cli\process.cpp;C:\Users\Lenovo\source\repos\mo1-cli\mo1-cli\x64\Debug\process.obj
+C:\Users\Lenovo\source\repos\mo1-cli\scheduler.cpp;C:\Users\Lenovo\source\repos\mo1-cli\mo1-cli\x64\Debug\scheduler.obj
