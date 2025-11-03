@@ -2,6 +2,8 @@
 
 #include <iostream>
 #include <sstream>
+#include <ctime>
+#include <iomanip>
 #include "instruction.h"
 #include "process.h"
 
@@ -124,4 +126,36 @@ void ForLoopInstruction::Execute() {
             currentIteration++;
         }
     }*/
+}
+
+/* READ instruction: reads uint16 value from process memory and stores in variable. */ 
+ReadInstruction::ReadInstruction(const string& varName_, uint32_t address_, Process* proc)
+    : Instruction(proc), varName(varName_), address(address_) {
+}
+
+/* Executes READ instruction: reads uint16 value from process memory and stores in variable. */
+void ReadInstruction::Execute() {
+    uint16_t val = 0;
+    string err;
+    bool ok = process->ReadMemory(address, val, err);
+    if (!ok) {
+        // Process will have been shut down by ReadMemory on error; log if needed
+        return;
+    }
+    process->SetVariable(varName, val);
+}
+
+/* WRITE instruction: writes uint16 value to process virtual address. */
+WriteInstruction::WriteInstruction(uint32_t address_, uint16_t value_, Process* proc)
+    : Instruction(proc), address(address_), value(value_) {
+}
+
+/* Executes WRITE instruction */
+void WriteInstruction::Execute() {
+    string err;
+    bool ok = process->WriteMemory(address, value, err);
+    if (!ok) {
+        // Process shutdown handled inside WriteMemory
+        return;
+    }
 }

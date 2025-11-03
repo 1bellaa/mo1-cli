@@ -3,9 +3,16 @@
 #include <iostream>
 #include <string>
 #include <windows.h>
+#include <sstream>
 #include "console.h"
+#include "memoryallocator.h"
+#include "memoryvisual.h"
 
 using namespace std;
+
+/* Memory global variables */
+MemoryAllocator memAlloc;
+MemoryVisual* memVis = nullptr;
 
 void Welcome() {
     cout << " ____  ____  _____  _____  ____  ____  __  __" << endl;
@@ -18,9 +25,18 @@ void Welcome() {
     cout << "Welcome to CSOPESY Emulator!" << endl;
     cout << "\nGroup developer:" << endl;
     cout << "Lim, Nathan\nMagabo, Julianna\nManlapig, Rachel\nSanchez, Jeck" << endl;
-    cout << "\nLast Updated: 10-20-2025" << endl;
+    cout << "\nLast Updated: 10-28-2025" << endl;
     cout << "-----------------------------------------------\n" << endl;
 }
+
+/* TO BE UPDATED ACCORDINGLY
+     console.cpp, 
+     instruction.cpp, 
+     memoryallocator.cpp, 
+     memoryvisual.cpp, 
+     process.cpp, 
+     scheduler.cpp 
+ */
 
 int main() {
     Welcome();
@@ -40,13 +56,17 @@ int main() {
             console.SearchScreen(command.substr(10));
             Welcome();
         }
-		else if (command == "process-smi") {}
-		else if (command == "vmstat") {}
+        else if (command.rfind("screen -c", 0) == 0) console.CreateCustomScreen(command.substr(10));
+        else if (command == "process-smi") console.ProcessSmiGlobal();
+        else if (command == "vmstat") console.VmstatGlobal();
         else if (command == "scheduler-start") console.SchedulerStart();
         else if (command == "scheduler-stop") console.SchedulerStop();
         else if (command == "report-util") console.ReportUtil();
         else if (command == "exit") running = false;
         else cout << "Unknown command. Please try again." << endl;
     }
+    // Cleanup
+    delete memVis;
+
     return 0;
 }

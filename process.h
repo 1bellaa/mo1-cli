@@ -16,6 +16,8 @@ enum ProcessState {
     FINISHED
 };
 
+//class Instruction; 
+
 class Process {
 private:
     string name;
@@ -33,13 +35,14 @@ private:
     time_t finishTime;
 
     size_t memorySize;
-    std::map<size_t, uint16_t> memoryMap;  // Virtual memory storage (address -> value)
+    map<size_t, uint16_t> memoryMap;  // Virtual memory storage (address -> value)
     bool hasMemoryViolation;
-    std::time_t violationTime;
+    time_t violationTime;
     size_t violationAddress;
 
 public:
-    Process(string processName, int processId, int numInstructions, int delaysPerExec);
+    //Process(string processName, int processId, int numInstructions, int delaysPerExec);
+    Process(string processName, int processId, int numInstructions, int delaysPerExec, size_t memSize = 0);
     ~Process();
 
     void Execute(int coreId);
@@ -64,6 +67,7 @@ public:
 
     uint16_t GetVariable(const string& varName);
     void SetVariable(const string& varName, uint16_t value);
+    int GetVariableCount() const { return variables.size(); }
 
     void SetFinishTime(time_t t) { finishTime = t; }
     time_t GetFinishTime() const { return finishTime; }
@@ -75,8 +79,11 @@ public:
 
     bool HasMemoryViolation() const { return hasMemoryViolation; } 
     void SetMemoryViolation(size_t address); // implement later ndjkfns
-    std::time_t GetViolationTime() const { return violationTime; }
+    time_t GetViolationTime() const { return violationTime; }
     size_t GetViolationAddress() const { return violationAddress; }
+
+    void AddInstruction(Instruction* instr);
+    void ClearInstructions();
 };
 
 #endif

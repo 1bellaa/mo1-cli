@@ -7,8 +7,11 @@
 #include <cstdlib>
 #include <ctime>
 #include "scheduler.h"
+#include "memoryallocator.h"
 
 using namespace std;
+
+extern MemoryAllocator memAlloc;
 
 /* Constructor initializes the scheduler with default configuration values 
    if config.txt is not found. */
@@ -21,6 +24,10 @@ Scheduler::Scheduler(): currentPID(1), cpuTicks(0),
     config.minIns = 1000;
     config.maxIns = 2000;
     config.delaysPerExec = 0;
+    config.maxOverallMem = 65536;
+    config.memPerFrame = 256;
+    config.minMemPerProc = 64;
+    config.maxMemPerProc = 2048;
 
     numCPU = config.numCPU;
     type = config.type;
@@ -29,6 +36,7 @@ Scheduler::Scheduler(): currentPID(1), cpuTicks(0),
     minIns = config.minIns;
     maxIns = config.maxIns;
     delaysPerExec = config.delaysPerExec;
+	// to add max memory stuff later
 
     //srand(time(NULL));
 }
@@ -58,6 +66,9 @@ void Scheduler::Initialize(const string& configFile) {
         coreAssignments[i] = nullptr;
     }
 
+	// Memory Allocator Initialization
+    memAlloc.Initialize(config.maxOverallMem, config.memPerFrame);
+
     /* To comment out, hindi yata kasama sa specs na dapat ipakita, for checking lang */
     cout << "System initialized with:" << endl;
     cout << "CPUs: " << numCPU << endl;
@@ -69,6 +80,10 @@ void Scheduler::Initialize(const string& configFile) {
     cout << "Min instructions: " << minIns << endl;
     cout << "Max instructions: " << maxIns << endl;
     cout << "Delays per exec: " << delaysPerExec << endl;
+    cout << "Max memory: " << config.maxOverallMem << " bytes" << endl;
+    cout << "Frame size: " << config.memPerFrame << " bytes" << endl;
+	cout << "Min memory per process: " << config.minMemPerProc << " bytes" << endl;
+	cout << "Max memory per process: " << config.maxMemPerProc << " bytes" << endl;
 }
 
 /* Reads scheduler configuration from config.txt, setting algorithm type and process parameters.
@@ -113,6 +128,18 @@ void Scheduler::LoadConfig(const string& filename) {
             else if (key == "delays-per-exec") {
                 config.delaysPerExec = stoi(value);
             }
+            else if (key == "max-overall-mem") {
+                config.maxOverallMem = stoul(value);
+            }
+            else if (key == "mem-per-frame") {
+                config.memPerFrame = stoul(value);
+            }
+            else if (key == "min-mem-per-proc") {
+                config.minMemPerProc = stoul(value);
+            }
+            else if (key == "max-mem-per-proc") {
+                config.maxMemPerProc = stoul(value);
+            }
         }
     }
 
@@ -124,13 +151,15 @@ void Scheduler::LoadConfig(const string& filename) {
    handles preemption for Round Robin, and manages process state transitions. */
 void Scheduler::Tick() {
     cpuTicks++;
+    memAlloc.Tick();
 
     /* For FCFS logic */
     if (type == FCFS) {
         // Generate new processes periodically if running
         if (isRunning && cpuTicks % batchProcessFreq == 0) {
             string processName = "process" + to_string(processCounter++);
-            CreateNewProcess(processName);
+            size_t memSize = config.minMemPerProc + (rand() % (config.maxMemPerProc - config.minMemPerProc + 1));
+            CreateNewProcess(processName, memSize);
         }
 
         // Assign ready processes to any idle cores
@@ -178,7 +207,8 @@ void Scheduler::Tick() {
     /* For RR logic */
     if (isRunning && cpuTicks % batchProcessFreq == 0) {
         string processName = "process" + to_string(processCounter++);
-        CreateNewProcess(processName);
+        size_t memSize = config.minMemPerProc + (rand() % (config.maxMemPerProc - config.minMemPerProc + 1));
+        CreateNewProcess(processName, memSize);
     }
 
     for (int i = 0; i < numCPU; ++i) {
@@ -272,7 +302,7 @@ void Scheduler::Stop() {
 
 /* Creates a new process with random instruction count and adds it to the ready queue.
    Used both for manual process creation (screen -s) and automatic generation (scheduler-start). */
-void Scheduler::CreateNewProcess(const string& name) {
+void Scheduler::CreateNewProcess(const string& name, size_t memSize) {
     // Check for existing process with the same name
     for (auto existing : allProcesses) {
         if (existing->GetName() == name) {
@@ -281,10 +311,34 @@ void Scheduler::CreateNewProcess(const string& name) {
             return;
         }
     }
+
+    // Use random memory size if not specified
+    if (memSize == 0) {
+        memSize = config.minMemPerProc +
+            (rand() % (config.maxMemPerProc - config.minMemPerProc + 1));
+    }
+
+    // Validate memory size (must be power of 2, range [64, 65536])
+    if (memSize < 64 || memSize > 65536 || (memSize & (memSize - 1)) != 0) {
+        cerr << "Invalid memory size for process " << name << endl;
+        return;
+    }
     
     int numInstructions = minIns + (rand() % (maxIns - minIns + 1));
     Process* proc = new Process(name, currentPID++, numInstructions, delaysPerExec);
+    proc->SetMemorySize(memSize);
 
+    // Reserve memory frames (demand paging - not allocated yet)
+    size_t numFrames = (memSize + config.memPerFrame - 1) / config.memPerFrame;
+    bool memReserved = memAlloc.ReserveFramesForProcess(currentPID, numFrames);
+
+    if (!memReserved) {
+        cerr << "Failed to reserve memory for process " << name << endl;
+        delete proc;
+        return;
+    }
+
+    currentPID++;
     allProcesses.push_back(proc);
     readyQueue.push(proc);
 
@@ -372,14 +426,20 @@ bool Scheduler::TryAssignProcess(Process* proc) {
             return true;
         }
     }
+
+    queue<Process*> tmp;
     bool alreadyQueued = false;
-    std::queue<Process*> tmp;
+    
     while (!readyQueue.empty()) {
-        Process* p = readyQueue.front(); readyQueue.pop();
+        Process* p = readyQueue.front(); 
+        readyQueue.pop();
         if (p == proc) alreadyQueued = true;
         tmp.push(p);
     }
-    while (!tmp.empty()) { readyQueue.push(tmp.front()); tmp.pop(); }
+    while (!tmp.empty()) { 
+        readyQueue.push(tmp.front()); 
+        tmp.pop(); 
+    }
 
     if (!alreadyQueued) readyQueue.push(proc);
 

@@ -5,15 +5,19 @@
 #include <ctime>
 #include <algorithm>
 #include "process.h"
+#include "memoryallocator.h"
 
 using namespace std;
+
+extern MemoryAllocator memAlloc;
 
 /* Constructor: Builds a new process instance with randomized instructions.
    Uses rand() to randomly select between instruction types and connects 
    directly with Scheduler::CreateNewProcess() which calls this constructor. */
-Process::Process(string processName, int processId, int numInstructions, int delaysPerExec)
+Process::Process(string processName, int processId, int numInstructions, int delaysPerExec, size_t memSize)
     : name(processName), pid(processId), state(READY), currentLine(0),
-    coreAssigned(-1), waitCycles(0), executionTime(0), delayCounter(0), finishTime(0) {
+    coreAssigned(-1), waitCycles(0), executionTime(0), delayCounter(0),
+    memorySize(memSize), hasMemoryViolation(false), violationTime(0), violationAddress(0) {
 
     srand(time(NULL) + processId);
 
@@ -105,20 +109,29 @@ void Process::Execute(int coreId) {
     }
 
     if (currentLine < totalLines) {
-        coreAssigned = coreId; // temp
-        instructions[currentLine]->Execute();
-        currentLine++;
+        try {
+            coreAssigned = coreId; // temp
+            instructions[currentLine]->Execute();
+            currentLine++;
 
-        if (currentLine >= totalLines) {
-            state = FINISHED;
+            if (currentLine >= totalLines) {
+                state = FINISHED;
+            }
         }
+        catch (const exception& e) {
+            hasMemoryViolation = true;
+            state = FINISHED;
+		}
+        
+
+        
     }
 }
 
 /* Checks whether the process has completed all instructions.
    Used by Scheduler to determine if the process should be rescheduled. */
 bool Process::IsFinished() const {
-    return state == FINISHED;
+    return state == FINISHED || hasMemoryViolation;
 }
 
 /* Prints detailed information about the process, including logs and progress.
@@ -131,6 +144,16 @@ void Process::PrintInfo() const {
     cout << "Logs:" << endl;
     for (const auto& log : outputLog) {
         cout << log << endl;
+    }
+
+    if (hasMemoryViolation) {
+        char timeStr[100];
+        tm local_tm;
+        localtime_s(&local_tm, &violationTime);
+        strftime(timeStr, sizeof(timeStr), "%H:%M:%S", &local_tm);
+
+        cout << "\nProcess shut down due to memory access violation at " << timeStr << endl;
+        cout << "Memory address 0x" << hex << uppercase << violationAddress << " invalid." << dec << endl;
     }
 
     if (state == FINISHED) {
@@ -147,16 +170,92 @@ void Process::AddOutput(const string& output) {
     outputLog.push_back(output);
 }
 
-/* Retrieves a variable’s current value. Automatically initializes it to 0 if missing.
-   Used by ADD/SUBTRACT instructions for arithmetic operations. */
+/* Retrieves variable from symbol table with auto-initialization.
+   Enforces 32-variable limit (64 bytes total). */
 uint16_t Process::GetVariable(const string& varName) {
     if (variables.find(varName) == variables.end()) {
+        if (variables.size() >= 32) {
+            return 0; // Symbol table full
+        }
         variables[varName] = 0;
     }
     return variables[varName];
 }
 
-/* Assigns a value to a process variable. */
+/* Sets variable in symbol table if space available */
 void Process::SetVariable(const string& varName, uint16_t value) {
+    if (variables.find(varName) == variables.end() && variables.size() >= 32) {
+        return; // Ignore if symbol table full
+    }
     variables[varName] = value;
+}
+
+/* Reads uint16 from memory with page fault handling.
+   Connects to MemoryAllocator for demand paging. */
+bool Process::ReadMemory(uint32_t address, uint16_t& outValue, string& errorMsg) {
+    if (memorySize == 0 || address >= memorySize) {
+        errorMsg = "Memory access violation";
+        SetMemoryViolation(address);
+        return false;
+    }
+
+    // Ensure page is loaded
+    size_t frameSize = memAlloc.GetFrameSize();
+    uint32_t vpn = address / frameSize;
+    int frameId = memAlloc.EnsurePageLoaded(pid, vpn, "csopesy-backing-store.txt");
+
+    if (frameId < 0) {
+        errorMsg = "Page fault handling failed";
+        SetMemoryViolation(address);
+        return false;
+    }
+
+    // Read from physical memory
+    bool success = memAlloc.ReadPhysical(pid, address, outValue);
+    if (!success) {
+        errorMsg = "Memory read failed";
+        SetMemoryViolation(address);
+        return false;
+    }
+
+    return true;
+}
+
+/* Writes uint16 to memory with page fault handling.
+   Marks page as dirty for backing store synchronization. */
+bool Process::WriteMemory(uint32_t address, uint16_t value, string& errorMsg) {
+    if (memorySize == 0 || address >= memorySize) {
+        errorMsg = "Memory access violation";
+        SetMemoryViolation(address);
+        return false;
+    }
+
+    // Ensure page is loaded
+    size_t frameSize = memAlloc.GetFrameSize();
+    uint32_t vpn = address / frameSize;
+    int frameId = memAlloc.EnsurePageLoaded(pid, vpn, "csopesy-backing-store.txt");
+
+    if (frameId < 0) {
+        errorMsg = "Page fault handling failed";
+        SetMemoryViolation(address);
+        return false;
+    }
+
+    // Write to physical memory
+    bool success = memAlloc.WritePhysical(pid, address, value);
+    if (!success) {
+        errorMsg = "Memory write failed";
+        SetMemoryViolation(address);
+        return false;
+    }
+
+    return true;
+}
+
+/* Records memory access violation with timestamp */
+void Process::SetMemoryViolation(size_t address) {
+    hasMemoryViolation = true;
+    violationTime = time(nullptr);
+    violationAddress = address;
+    state = FINISHED;
 }

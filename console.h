@@ -27,13 +27,15 @@ public:
 
     void CreateScreen(const string& processName);
     void SearchScreen(const string& processName);
+    void CreateCustomScreen(const string& args);
     void ListScreens();
 
     void SchedulerStart();
     void SchedulerStop();
     void ReportUtil();
 
-	void ShowSchedulerLog(); // temporary, will remove later
+    void ProcessSmiGlobal();
+    void VmstatGlobal();
 };
 
 #endif

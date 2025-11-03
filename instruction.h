@@ -1,4 +1,3 @@
-
 #ifndef INSTRUCTION_H
 #define INSTRUCTION_H
 
@@ -83,6 +82,25 @@ public:
     ForLoopInstruction(const vector<Instruction*>& instructions, int numRepeats, Process* proc);
     ~ForLoopInstruction();
     void Execute() override;
+};
+
+class ReadInstruction : public Instruction {
+public:
+    ReadInstruction(const string& varName, uint32_t address, Process* proc);
+    void Execute() override;
+private:
+    string varName;
+    uint32_t address;
+};
+
+class WriteInstruction : public Instruction {
+public:
+    WriteInstruction(uint32_t address, uint16_t value, Process* proc);
+    void Execute() override;
+
+private:
+    uint32_t address;
+    uint16_t value;
 };
 
 #endif
