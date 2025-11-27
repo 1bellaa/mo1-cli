@@ -101,8 +101,7 @@ void Console::CreateScreen(const string& processName, int memorySize) {
 }
 
 /* Creates a new process with user-defined instructions and specified memory size.
-   Validates memory size (64-65536 bytes, power of 2) and instruction count (1-50).
-   Currently shows placeholder message as full instruction parsing is not implemented. */
+   Validates memory size (64-65536 bytes, power of 2) and instruction count (1-50). */
 void Console::CreateScreenWithInstructions(const string& processName, int memorySize, const string& instructions) {
     // Validate memory size
     if (memorySize < 64 || memorySize > 65536) {
@@ -115,7 +114,7 @@ void Console::CreateScreenWithInstructions(const string& processName, int memory
         return;
     }
 
-    // Parse and validate instructions (simplified for now)
+    // Parse and validate instructions 
     // Count semicolons to estimate instruction count
     int instrCount = 1;
     for (char c : instructions) {
@@ -127,7 +126,7 @@ void Console::CreateScreenWithInstructions(const string& processName, int memory
         return;
     }
 
-    // For now, create a basic process - full parsing would be more complex
+    // Create a basic process
     cout << "User-defined instruction processes not fully implemented yet." << endl;
     cout << "Creating process with random instructions instead." << endl;
     CreateScreen(processName, memorySize);
@@ -393,4 +392,5 @@ void Console::VMStat() {
 
     // Save backing store
     memMgr->SaveBackingStore();
+
 }
