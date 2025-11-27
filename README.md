@@ -32,6 +32,19 @@ This project implements a multitasking operating system emulator with the follow
 
 ---
 
+## Source File Descriptions
+
+| File | Description |
+|------|-------------|
+| `emulator.cpp` | Entry point + user command recognition and handling with memory management |
+| `console.cpp` | CLI interface + I/O commands with memory management features |
+| `scheduler.cpp` | Process scheduling logic and scheduling algorithm with memory management |
+| `process.cpp` | Barebone instruction generation and execution with memory management |
+| `instruction.cpp` | Barebone instruction implementation with memory operations |
+| `memory.cpp` | Memory management implementation with demand paging |
+
+---
+
 ## Commands
 
 ### Main Menu Console
