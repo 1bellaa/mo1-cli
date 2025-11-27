@@ -8,8 +8,6 @@ A **Multitasking OS with Memory Management** that simulates a simple command-lin
 - Manlapig, Rachel
 - Sanchez, Jeck
 
-**Last Updated:** 11-27-2025
-
 ---
 
 ## Features Overview
@@ -127,7 +125,7 @@ Each process contains:
 #### Memory Layout:
 ```
 Symbol Table (64 bytes, fixed)
-??? Variable storage (max 32 × 2 bytes)
+??? Variable storage (max 32 Ã— 2 bytes)
 ??? Managed automatically by DECLARE
 
 Process Memory (64-65536 bytes, configurable)
@@ -170,7 +168,7 @@ Process Memory (64-65536 bytes, configurable)
 
 **Backing Store Operations**:
 - Text-based storage in `csopesy-backing-store.txt`
-- Format: `P<pid>_Page<num>` ? `PageData_...`
+- Format: `P<pid>_Page<num>` -> `PageData_...`
 - Persistent across page-in/page-out operations
 - Saved automatically by `vmstat` command
 
@@ -242,7 +240,7 @@ Process process1 shut down due to memory access violation error that occurred at
 
 **If no `.sln` file exists:**
 
-1. **File ? New ? Project From Existing Code...**
+1. **File > New > Project From Existing Code...**
 2. Select **Visual C++**
 3. Browse to the folder of the cloned repository
 4. Follow the next steps, then click **Finish**
@@ -252,6 +250,6 @@ Process process1 shut down due to memory access violation error that occurred at
 **If encountering "unresolved externals" error:**
 
 1. Right-click on the project in the Solution Explorer, then select **Properties**
-2. Navigate to **Linker ? System**
+2. Navigate to **Linker > System**
 3. Set **Subsystem** to `Console (/SUBSYSTEM:CONSOLE)` using the dropdown
 4. Click **Apply** and rebuild the project
