@@ -1,4 +1,4 @@
-/* Process scheduling logic and scheduling algorithm */
+/* Process scheduling logic and scheduling algorithm with memory management */
 
 #include <fstream>
 #include <sstream>
@@ -6,17 +6,17 @@
 #include <algorithm>
 #include <cstdlib>
 #include <ctime>
+#include <cmath>
 #include "scheduler.h"
-#include "memoryallocator.h"
 
 using namespace std;
 
-extern MemoryAllocator memAlloc;
-
-/* Constructor initializes the scheduler with default configuration values 
-   if config.txt is not found. */
-Scheduler::Scheduler(): currentPID(1), cpuTicks(0), 
-                        processCounter(1), isRunning(false) {
+/* Constructor initializes the scheduler with default configuration values
+   if config.txt is not found. Includes memory management parameters and
+   idle/active CPU tick tracking for vmstat functionality. */
+Scheduler::Scheduler() : currentPID(1), cpuTicks(0),
+processCounter(1), isRunning(false), hasEverGenerated(false),
+idleCpuTicks(0), activeCpuTicks(0) {
     config.numCPU = 4;
     config.type = ROUND_ROBIN;
     config.quantumCycles = 5;
@@ -24,10 +24,10 @@ Scheduler::Scheduler(): currentPID(1), cpuTicks(0),
     config.minIns = 1000;
     config.maxIns = 2000;
     config.delaysPerExec = 0;
-    config.maxOverallMem = 65536;
+    config.maxOverallMem = 16384;
     config.memPerFrame = 256;
-    config.minMemPerProc = 64;
-    config.maxMemPerProc = 2048;
+    config.minMemPerProc = 256;
+    config.maxMemPerProc = 1024;
 
     numCPU = config.numCPU;
     type = config.type;
@@ -36,21 +36,21 @@ Scheduler::Scheduler(): currentPID(1), cpuTicks(0),
     minIns = config.minIns;
     maxIns = config.maxIns;
     delaysPerExec = config.delaysPerExec;
-	// to add max memory stuff later
-
-    //srand(time(NULL));
 }
 
-/* Destructor cleans up all dynamically allocated processes.
-   Called when the console terminates, ensuring no memory leaks. */
+/* Destructor cleans up all dynamically allocated processes and deallocates their memory.
+   Called when the console terminates, ensuring no memory leaks.
+   Now includes memory deallocation through memory manager. */
 Scheduler::~Scheduler() {
     for (auto proc : allProcesses) {
+        memoryManager.DeallocateMemory(proc->GetPID(), proc->GetPageTable());
         delete proc;
     }
 }
 
-/* Loads configuration from file and initializes CPU cores.
-   This is called by Console::Initialize() to set up the scheduling environment. */
+/* Loads configuration from file and initializes CPU cores and memory manager.
+   This is called by Console::Initialize() to set up the scheduling environment.
+   Now includes memory manager initialization with configured parameters. */
 void Scheduler::Initialize(const string& configFile) {
     LoadConfig(configFile);
 
@@ -66,32 +66,19 @@ void Scheduler::Initialize(const string& configFile) {
         coreAssignments[i] = nullptr;
     }
 
-	// Memory Allocator Initialization
-    memAlloc.Initialize(config.maxOverallMem, config.memPerFrame);
-
-    /* To comment out, hindi yata kasama sa specs na dapat ipakita, for checking lang */
-    cout << "System initialized with:" << endl;
-    cout << "CPUs: " << numCPU << endl;
-    cout << "Scheduler: " << (type == FCFS ? "FCFS" : "Round Robin") << endl;
-    if (type == ROUND_ROBIN) {
-        cout << "Quantum cycles: " << quantumCycles << endl;
-    }
-    cout << "Batch process frequency: " << batchProcessFreq << endl;
-    cout << "Min instructions: " << minIns << endl;
-    cout << "Max instructions: " << maxIns << endl;
-    cout << "Delays per exec: " << delaysPerExec << endl;
-    cout << "Max memory: " << config.maxOverallMem << " bytes" << endl;
-    cout << "Frame size: " << config.memPerFrame << " bytes" << endl;
-	cout << "Min memory per process: " << config.minMemPerProc << " bytes" << endl;
-	cout << "Max memory per process: " << config.maxMemPerProc << " bytes" << endl;
+    // Initialize memory manager with configured parameters
+    memoryManager.Initialize(config.maxOverallMem, config.memPerFrame,
+        config.minMemPerProc, config.maxMemPerProc);
 }
 
 /* Reads scheduler configuration from config.txt, setting algorithm type and process parameters.
-   Falls back to default values if file cannot be opened. */
+   Falls back to default values if file cannot be opened.
+   Now includes memory management parameters (max-overall-mem, mem-per-frame,
+   min-mem-per-proc, max-mem-per-proc). */
 void Scheduler::LoadConfig(const string& filename) {
     ifstream file(filename);
     if (!file.is_open()) {
-        //cerr << "Error: Could not open config file " << filename << endl;
+        cout << "Warning: Could not open config file, using defaults" << endl;
         return;
     }
 
@@ -101,45 +88,24 @@ void Scheduler::LoadConfig(const string& filename) {
         string key, value;
 
         if (iss >> key >> value) {
-            // Remove surrounding quotes if present
             if (!value.empty() && value.front() == '"' && value.back() == '"') {
                 value = value.substr(1, value.size() - 2);
             }
 
-            if (key == "num-cpu") {
-                config.numCPU = stoi(value);
-            }
+            if (key == "num-cpu") config.numCPU = stoi(value);
             else if (key == "scheduler") {
                 if (value == "fcfs") config.type = FCFS;
                 else if (value == "rr") config.type = ROUND_ROBIN;
             }
-            else if (key == "quantum-cycles") {
-                config.quantumCycles = stoi(value);
-            }
-            else if (key == "batch-process-freq") {
-                config.batchProcessFreq = stoi(value);
-            }
-            else if (key == "min-ins") {
-                config.minIns = stoi(value);
-            }
-            else if (key == "max-ins") {
-                config.maxIns = stoi(value);
-            }
-            else if (key == "delays-per-exec") {
-                config.delaysPerExec = stoi(value);
-            }
-            else if (key == "max-overall-mem") {
-                config.maxOverallMem = stoul(value);
-            }
-            else if (key == "mem-per-frame") {
-                config.memPerFrame = stoul(value);
-            }
-            else if (key == "min-mem-per-proc") {
-                config.minMemPerProc = stoul(value);
-            }
-            else if (key == "max-mem-per-proc") {
-                config.maxMemPerProc = stoul(value);
-            }
+            else if (key == "quantum-cycles") config.quantumCycles = stoi(value);
+            else if (key == "batch-process-freq") config.batchProcessFreq = stoi(value);
+            else if (key == "min-ins") config.minIns = stoi(value);
+            else if (key == "max-ins") config.maxIns = stoi(value);
+            else if (key == "delays-per-exec") config.delaysPerExec = stoi(value);
+            else if (key == "max-overall-mem") config.maxOverallMem = stoi(value);
+            else if (key == "mem-per-frame") config.memPerFrame = stoi(value);
+            else if (key == "min-mem-per-proc") config.minMemPerProc = stoi(value);
+            else if (key == "max-mem-per-proc") config.maxMemPerProc = stoi(value);
         }
     }
 
@@ -148,25 +114,89 @@ void Scheduler::LoadConfig(const string& filename) {
 
 /* Executes one CPU cycle across all cores.
    Generates new processes based on frequency, executes running processes,
-   handles preemption for Round Robin, and manages process state transitions. */
+   handles preemption for Round Robin, and manages process state transitions.
+   Now tracks idle/active CPU ticks for vmstat, deallocates memory when processes finish,
+   and rounds process memory to nearest power of 2 during automatic generation. */
 void Scheduler::Tick() {
     cpuTicks++;
-    memAlloc.Tick();
 
-    /* For FCFS logic */
+    // Track idle/active CPU ticks for vmstat
+    int coresInUse = 0;
+    for (int i = 0; i < numCPU; i++) {
+        if (coreAssignments[i] != nullptr && !coreAssignments[i]->IsFinished()) {
+            coresInUse++;
+        }
+    }
+
+    if (coresInUse > 0) {
+        activeCpuTicks += coresInUse;
+    }
+    idleCpuTicks += (numCPU - coresInUse);
+
+    // Generate new processes if scheduler is running
+    if (isRunning && cpuTicks % batchProcessFreq == 0) {
+        string processName = "process" + to_string(processCounter++);
+        int memSize = config.minMemPerProc + (rand() % (config.maxMemPerProc - config.minMemPerProc + 1));
+        // Round to nearest power of 2
+        if (memSize > 0) {
+            int power = (int)ceil(log2(memSize));
+            memSize = 1 << power;
+            // Clamp to valid range
+            if (memSize < 64) memSize = 64;
+            if (memSize > 65536) memSize = 65536;
+        }
+        CreateNewProcess(processName, memSize);
+    }
+
+    /* FCFS scheduling algorithm */
     if (type == FCFS) {
-        // Generate new processes periodically if running
-        if (isRunning && cpuTicks % batchProcessFreq == 0) {
-            string processName = "process" + to_string(processCounter++);
-            size_t memSize = config.minMemPerProc + (rand() % (config.maxMemPerProc - config.minMemPerProc + 1));
-            CreateNewProcess(processName, memSize);
+        // Execute processes on cores
+        for (int i = 0; i < numCPU; ++i) {
+            Process* proc = coreAssignments[i];
+            if (proc != nullptr) {
+                if (proc->IsFinished()) {
+                    if (proc->GetFinishTime() == 0)
+                        proc->SetFinishTime(time(nullptr));
+                    proc->SetCoreAssigned(-1);
+                    memoryManager.DeallocateMemory(proc->GetPID(), proc->GetPageTable());
+                    coreAssignments[i] = nullptr;
+                    continue;
+                }
+
+                proc->Execute(i, &memoryManager);
+                proc->IncrementExecutionTime();
+
+                if (proc->GetState() == WAITING) {
+                    proc->SetCoreAssigned(-1);
+                    coreAssignments[i] = nullptr;
+                    processQuantumCounters.erase(proc);
+                    continue;
+                }
+
+                if (proc->IsFinished()) {
+                    if (proc->GetFinishTime() == 0)
+                        proc->SetFinishTime(time(nullptr));
+                    proc->SetCoreAssigned(-1);
+                    memoryManager.DeallocateMemory(proc->GetPID(), proc->GetPageTable());
+                    coreAssignments[i] = nullptr;
+                }
+            }
         }
 
-        // Assign ready processes to any idle cores
+        // Assign processes from ready queue to idle cores
         for (int i = 0; i < numCPU; ++i) {
+            while (!readyQueue.empty() && readyQueue.front()->IsFinished()) {
+                readyQueue.pop();
+            }
+
             if (coreAssignments[i] == nullptr && !readyQueue.empty()) {
                 Process* nextProc = readyQueue.front();
                 readyQueue.pop();
+
+                if (nextProc->IsFinished()) {
+                    i--;
+                    continue;
+                }
 
                 nextProc->SetState(RUNNING);
                 nextProc->SetCoreAssigned(i);
@@ -174,24 +204,7 @@ void Scheduler::Tick() {
             }
         }
 
-        // Execute one instruction for each running process
-        for (int i = 0; i < numCPU; ++i) {
-            Process* proc = coreAssignments[i];
-            if (proc != nullptr) {
-                proc->Execute(i);
-                proc->IncrementExecutionTime();
-
-                if (proc->IsFinished()) {
-                    if (proc->GetFinishTime() == 0)
-                        proc->SetFinishTime(time(nullptr));
-
-                    proc->SetCoreAssigned(-1);
-                    coreAssignments[i] = nullptr;
-                }
-            }
-        }
-
-        // Handle waiting processes (sleep)
+        // Handle waiting processes
         for (auto proc : allProcesses) {
             if (proc->GetState() == WAITING) {
                 proc->DecrementWait();
@@ -204,39 +217,47 @@ void Scheduler::Tick() {
 
         return;
     }
-    /* For RR logic */
-    if (isRunning && cpuTicks % batchProcessFreq == 0) {
-        string processName = "process" + to_string(processCounter++);
-        size_t memSize = config.minMemPerProc + (rand() % (config.maxMemPerProc - config.minMemPerProc + 1));
-        CreateNewProcess(processName, memSize);
-    }
 
+    /* Round Robin scheduling algorithm */
+    // Execute processes on cores
     for (int i = 0; i < numCPU; ++i) {
         Process* proc = coreAssignments[i];
 
         if (proc != nullptr) {
-            // Execute process
-            proc->Execute(i);
-            proc->IncrementExecutionTime();
-
-            // Handle quantum expiration
-            processQuantumCounters[proc]++;
-
-            if (processQuantumCounters[proc] >= quantumCycles && !proc->IsFinished()) {
-                // Preempt process
-                proc->SetState(READY);
-                //proc->SetCoreAssigned(-1); // temporarily unassigned
-                readyQueue.push(proc);
-                coreAssignments[i] = nullptr;
-                processQuantumCounters[proc] = 0;
-            }
-
-            // Handle process completion
             if (proc->IsFinished()) {
                 if (proc->GetFinishTime() == 0)
                     proc->SetFinishTime(time(nullptr));
                 proc->SetCoreAssigned(-1);
+                memoryManager.DeallocateMemory(proc->GetPID(), proc->GetPageTable());
                 coreAssignments[i] = nullptr;
+                processQuantumCounters.erase(proc);
+                continue;
+            }
+
+            proc->Execute(i, &memoryManager);
+            proc->IncrementExecutionTime();
+
+            if (proc->IsFinished()) {
+                if (proc->GetFinishTime() == 0)
+                    proc->SetFinishTime(time(nullptr));
+
+                proc->SetState(FINISHED);
+                proc->SetCoreAssigned(-1);
+                memoryManager.DeallocateMemory(proc->GetPID(), proc->GetPageTable());
+                coreAssignments[i] = nullptr;
+                processQuantumCounters.erase(proc);
+
+                continue;
+            }
+
+            processQuantumCounters[proc]++;
+
+            if (processQuantumCounters[proc] >= quantumCycles) {
+                proc->SetState(READY);
+                proc->SetCoreAssigned(-1);
+                readyQueue.push(proc);
+                coreAssignments[i] = nullptr;
+                processQuantumCounters.erase(proc);
             }
         }
     }
@@ -252,11 +273,20 @@ void Scheduler::Tick() {
         }
     }
 
-    // Prevent lingering -1 assignments
+    // Assign processes from ready queue to idle cores
     for (int i = 0; i < numCPU; ++i) {
+        while (!readyQueue.empty() && readyQueue.front()->IsFinished()) {
+            readyQueue.pop();
+        }
+
         if (coreAssignments[i] == nullptr && !readyQueue.empty()) {
             Process* nextProc = readyQueue.front();
             readyQueue.pop();
+
+            if (nextProc->IsFinished()) {
+                i--;
+                continue;
+            }
 
             nextProc->SetState(RUNNING);
             nextProc->SetCoreAssigned(i);
@@ -275,6 +305,10 @@ void Scheduler::ScheduleNext(int coreId) {
     if (coreAssignments[coreId] == nullptr && !readyQueue.empty()) {
         Process* nextProc = readyQueue.front();
         readyQueue.pop();
+
+        if (nextProc->IsFinished()) {
+            return;
+        }
 
         nextProc->SetState(RUNNING);
         nextProc->SetCoreAssigned(coreId);
@@ -300,50 +334,42 @@ void Scheduler::Stop() {
     cout << "Scheduler stopped generating processes." << endl;
 }
 
-/* Creates a new process with random instruction count and adds it to the ready queue.
-   Used both for manual process creation (screen -s) and automatic generation (scheduler-start). */
-void Scheduler::CreateNewProcess(const string& name, size_t memSize) {
-    // Check for existing process with the same name
+/* Creates a new process with specified memory size and adds it to the ready queue.
+   Used both for manual process creation (screen -s) and automatic generation (scheduler-start).
+   Allocates memory through memory manager using demand paging.
+   Silently fails if memory allocation fails or process already exists (during auto-generation). */
+void Scheduler::CreateNewProcess(const string& name, int memorySize) {
     for (auto existing : allProcesses) {
         if (existing->GetName() == name) {
-            // Already exists, skip creation
-            //cout << "Skipping duplicate process: " << name << endl;
+            // Only show error for manual creation (when scheduler not auto-generating)
+            if (!isRunning) {
+                cout << "Process " << name << " already exists." << endl;
+            }
             return;
         }
     }
 
-    // Use random memory size if not specified
-    if (memSize == 0) {
-        memSize = config.minMemPerProc +
-            (rand() % (config.maxMemPerProc - config.minMemPerProc + 1));
+    if (memorySize == -1) {
+        memorySize = config.minMemPerProc;
     }
 
-    // Validate memory size (must be power of 2, range [64, 65536])
-    if (memSize < 64 || memSize > 65536 || (memSize & (memSize - 1)) != 0) {
-        cerr << "Invalid memory size for process " << name << endl;
+    // Check if process memory requirement exceeds total available memory
+    // Silently fail during automatic generation to avoid spam
+    if (memorySize > config.maxOverallMem) {
         return;
     }
-    
+
     int numInstructions = minIns + (rand() % (maxIns - minIns + 1));
-    Process* proc = new Process(name, currentPID++, numInstructions, delaysPerExec);
-    proc->SetMemorySize(memSize);
+    Process* proc = new Process(name, currentPID++, numInstructions, delaysPerExec, memorySize);
 
-    // Reserve memory frames (demand paging - not allocated yet)
-    size_t numFrames = (memSize + config.memPerFrame - 1) / config.memPerFrame;
-    bool memReserved = memAlloc.ReserveFramesForProcess(currentPID, numFrames);
-
-    if (!memReserved) {
-        cerr << "Failed to reserve memory for process " << name << endl;
+    // Allocate memory for the process
+    if (!memoryManager.AllocateMemory(proc->GetPID(), memorySize, proc->GetPageTable())) {
         delete proc;
         return;
     }
 
-    currentPID++;
     allProcesses.push_back(proc);
     readyQueue.push(proc);
-
-    // cout << "Process " << name << " created with " << numInstructions << " instructions." << endl;
-    //processLogs.push_back("Process " + name + " created with " + to_string(numInstructions) + " instructions."); // to avoid console flooding of threads
 }
 
 /* Searches for a process by name in the list of all processes.
@@ -362,7 +388,7 @@ Process* Scheduler::GetProcess(const string& name) {
 int Scheduler::GetCoresUsed() const {
     int count = 0;
     for (const auto& pair : coreAssignments) {
-        if (pair.second != nullptr) {
+        if (pair.second != nullptr && !pair.second->IsFinished()) {
             count++;
         }
     }
@@ -372,7 +398,7 @@ int Scheduler::GetCoresUsed() const {
 /* Returns the number of idle CPU cores.
    Used for display in screen-ls and report-util commands. */
 int Scheduler::GetCoresAvailable() const {
-	return numCPU - GetCoresUsed();
+    return numCPU - GetCoresUsed();
 }
 
 /* Calculates CPU utilization as percentage of busy cores over total cores.
@@ -387,7 +413,7 @@ double Scheduler::GetCPUUtilization() const {
 vector<Process*> Scheduler::GetRunningProcesses() const {
     vector<Process*> running;
     for (auto proc : allProcesses) {
-        if (!proc->IsFinished()) {
+        if (proc != nullptr && !proc->IsFinished()) {
             running.push_back(proc);
         }
     }
@@ -406,14 +432,19 @@ vector<Process*> Scheduler::GetFinishedProcesses() const {
     return finished;
 }
 
+/* Attempts to assign a specific process to an available CPU core.
+   If successful, updates process state and core assignment.
+   If no cores are available, adds the process to the ready queue if not already present. */
 bool Scheduler::TryAssignProcess(Process* proc) {
     if (proc == nullptr) return false;
     if (proc->IsFinished()) return false;
 
-    // If already assigned, nothing to do.
+    while (!readyQueue.empty() && readyQueue.front()->IsFinished()) {
+        readyQueue.pop();
+    }
+
     if (proc->GetCoreAssigned() != -1) return true;
 
-    // look for an idle core
     for (int i = 0; i < numCPU; ++i) {
         if (coreAssignments[i] == nullptr) {
             proc->SetState(RUNNING);
@@ -427,21 +458,23 @@ bool Scheduler::TryAssignProcess(Process* proc) {
         }
     }
 
-    queue<Process*> tmp;
     bool alreadyQueued = false;
-    
+    queue<Process*> tmp;
     while (!readyQueue.empty()) {
-        Process* p = readyQueue.front(); 
+        Process* p = readyQueue.front();
         readyQueue.pop();
         if (p == proc) alreadyQueued = true;
         tmp.push(p);
     }
-    while (!tmp.empty()) { 
-        readyQueue.push(tmp.front()); 
-        tmp.pop(); 
+    while (!tmp.empty()) {
+        readyQueue.push(tmp.front());
+        tmp.pop();
     }
 
-    if (!alreadyQueued) readyQueue.push(proc);
+    if (!alreadyQueued) {
+        proc->SetState(READY);
+        readyQueue.push(proc);
+    }
 
     return false;
 }

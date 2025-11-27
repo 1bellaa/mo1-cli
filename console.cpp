@@ -1,4 +1,4 @@
-/* CLI interface + I/O commands */
+/* CLI interface + I/O commands with memory management features */
 
 #include <iostream>
 #include <fstream>
@@ -7,18 +7,16 @@
 #include <thread>
 #include <ctime>
 #include <sstream>
+#ifdef _WIN32
 #include <windows.h>
+#define CLEAR_SCREEN "cls"
+#else
+#define CLEAR_SCREEN "clear"
+#endif
 #include "console.h"
-//#include "scheduler.h"
-#include "memoryallocator.h"
-#include "memoryvisual.h"
-//#include "instruction.h"
-//#include "process.h"
+#include "scheduler.h"
 
 using namespace std;
-
-extern MemoryAllocator memAlloc;
-extern MemoryVisual* memVis;
 
 /* Constructor initializes internal state of the Console.
    Connects to the Scheduler and tick thread which simulate CPU ticks. */
@@ -37,19 +35,16 @@ Console::~Console() {
 }
 
 /* Initializes the system by loading configuration and starting CPU ticks.
-   Connects to Scheduler::Initialize() to load config.txt. */
+   Connects to Scheduler::Initialize() to load config.txt.
+   Now also initializes memory manager with configured parameters. */
 void Console::Initialize() {
     scheduler.Initialize("config.txt");
     initialized = true;
 
-    /*size_t total = 65536;
-    size_t framesz = 256;
-    memAlloc.Initialize(total, framesz);*/
-
     shouldRunTicks = true;
     tickThread = new thread(&Console::TickLoop, this);
 
-    cout << "Console initialized successfully." << endl; // will comment out after
+    cout << "System initialized successfully." << endl;
 }
 
 /* Simulates the CPU ticking mechanism in real-time.
@@ -57,193 +52,90 @@ void Console::Initialize() {
 void Console::TickLoop() {
     while (shouldRunTicks) {
         scheduler.Tick();
-        this_thread::sleep_for(chrono::milliseconds(100)); // ms per tick, idk if correct tho
+        this_thread::sleep_for(chrono::milliseconds(100));
     }
 }
 
-/* Utility to format timestamps consistently. */
+/* Utility to format timestamps consistently.
+   Uses platform-specific localtime functions for cross-compatibility. */
 static string FormatTimestamp(time_t t) {
     char buf[64];
     tm local_tm;
+#ifdef _WIN32
     localtime_s(&local_tm, &t);
-    strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S %p", &local_tm);
+#else
+    localtime_r(&t, &local_tm);
+#endif
+    strftime(buf, sizeof(buf), "%m/%d/%Y %I:%M:%S %p", &local_tm);
     return string(buf);
 }
 
-/* Creates a new process “screen” for user interaction.
-   Connects to Scheduler::CreateNewProcess() to spawn a process. */
-void Console::CreateScreen(const string& processName) {
-    Process* proc = scheduler.GetProcess(processName);
-    
-    istringstream iss(processName);
-    string name;
-    size_t memSize = 0;
-    if (!(iss >> name >> memSize)) {
-        cout << "Invalid screen -s usage. Format: screen -s <process_name> <process_memory_size>" << endl;
+/* Creates a new process "screen" for user interaction with specified memory size.
+   Connects to Scheduler::CreateNewProcess() to spawn a process.
+   Validates that memory size is between 64 and 65536 bytes and is a power of 2. */
+void Console::CreateScreen(const string& processName, int memorySize) {
+    // Validate memory size
+    if (memorySize < 64 || memorySize > 65536) {
+        cout << "Invalid memory allocation. Memory must be between 64 and 65536 bytes." << endl;
         return;
     }
 
-    Process* proc = scheduler.GetProcess(name);
+    // Check if power of 2
+    if ((memorySize & (memorySize - 1)) != 0) {
+        cout << "Invalid memory allocation. Memory must be a power of 2." << endl;
+        return;
+    }
+
+    Process* proc = scheduler.GetProcess(processName);
     if (proc != nullptr) {
         cout << "Process " << processName << " already exists." << endl;
         return;
     }
 
-    /* validate memSize : power of two, between 64 and 65536 bytes(2^6...2^16) */
-    if (memSize < 64 || memSize > 65536) {
-        cout << "invalid memory allocation" << endl;
-        return;
-    }
-    
-    auto isPow2 = [](size_t x) { return x && !(x & (x - 1)); };
-    if (!isPow2(memSize)) {
-        cout << "invalid memory allocation" << endl;
-        return;
-    }
-
-    scheduler.CreateNewProcess(processName, memSize);
+    scheduler.CreateNewProcess(processName, memorySize);
     proc = scheduler.GetProcess(processName);
 
     if (proc != nullptr) {
-        DisplayProcessScreen(proc); 
-    } else {
-        cout << "Failed to create process." << endl;
+        DisplayProcessScreen(proc);
     }
 }
 
-void Console::CreateCustomScreen(const string& args) {
-    // Parse: name memsize "instruction1; instruction2; ..."
-    size_t firstQuote = args.find('"');
-    size_t lastQuote = string::npos;
-    if (firstQuote != string::npos) lastQuote = args.rfind('"');
-
-    if (firstQuote == string::npos || lastQuote == firstQuote) {
-        cout << "Invalid screen -c usage. Format: screen -c <process_name> <process_memory_size> \"<instructions>\"" << endl;
+/* Creates a new process with user-defined instructions and specified memory size.
+   Validates memory size (64-65536 bytes, power of 2) and instruction count (1-50).
+   Currently shows placeholder message as full instruction parsing is not implemented. */
+void Console::CreateScreenWithInstructions(const string& processName, int memorySize, const string& instructions) {
+    // Validate memory size
+    if (memorySize < 64 || memorySize > 65536) {
+        cout << "Invalid memory allocation. Memory must be between 64 and 65536 bytes." << endl;
         return;
     }
 
-    string before = args.substr(0, firstQuote);
-    string instrStr = args.substr(firstQuote + 1, lastQuote - firstQuote - 1);
-
-    istringstream iss(before);
-    string name;
-    size_t memSize = 0;
-
-    if (!(iss >> name >> memSize)) {
-        cout << "Invalid screen -c usage. Format: screen -c <process_name> <process_memory_size> \"<instructions>\"" << endl;
+    if ((memorySize & (memorySize - 1)) != 0) {
+        cout << "Invalid memory allocation. Memory must be a power of 2." << endl;
         return;
     }
 
-    // Validate memory
-    if (memSize < 64 || memSize > 65536) {
-        cout << "invalid memory allocation" << endl;
+    // Parse and validate instructions (simplified for now)
+    // Count semicolons to estimate instruction count
+    int instrCount = 1;
+    for (char c : instructions) {
+        if (c == ';') instrCount++;
+    }
+
+    if (instrCount < 1 || instrCount > 50) {
+        cout << "Invalid command. Instruction count must be between 1 and 50." << endl;
         return;
     }
 
-    auto isPow2 = [](size_t x) { return x && !(x & (x - 1)); };
-    if (!isPow2(memSize)) {
-        cout << "invalid memory allocation" << endl;
-        return;
-    }
-
-    // Parse semicolon-separated instructions
-    vector<string> parts;
-    {
-        istringstream s(instrStr);
-        string token;
-        while (getline(s, token, ';')) {
-            size_t a = token.find_first_not_of(" \t\r\n");
-            if (a == string::npos) continue;
-            size_t b = token.find_last_not_of(" \t\r\n");
-            parts.push_back(token.substr(a, b - a + 1));
-        }
-    }
-
-    if (parts.empty() || parts.size() > 50) {
-        cout << "invalid command" << endl;
-        return;
-    }
-
-    // Parse instructions into instruction objects
-    vector<Instruction*> instructions;
-    for (auto& p : parts) {
-        vector<string> toks;
-
-        // Special handling for PRINT
-        if (p.rfind("PRINT", 0) == 0) {
-            toks.push_back("PRINT");
-            size_t open = p.find('(');
-            size_t close = p.rfind(')');
-            if (open != string::npos && close != string::npos && close > open) {
-                string inside = p.substr(open + 1, close - open - 1);
-                toks.push_back(inside);
-            }
-            else {
-                toks.push_back("");
-            }
-        }
-        else {
-            istringstream iss2(p);
-            string tok;
-            while (iss2 >> tok) toks.push_back(tok);
-        }
-
-        if (toks.empty()) continue;
-        string op = toks[0];
-
-        if (op == "DECLARE" && toks.size() >= 3) {
-            instructions.push_back(new DeclareInstruction(toks[1], (uint16_t)stoi(toks[2]), nullptr));
-        }
-        else if (op == "ADD" && toks.size() >= 4) {
-            instructions.push_back(new AddInstruction(toks[1], toks[2], (uint16_t)stoi(toks[3]), nullptr));
-        }
-        else if (op == "SUBTRACT" && toks.size() >= 4) {
-            instructions.push_back(new SubtractInstruction(toks[1], toks[2], (uint16_t)stoi(toks[3]), nullptr));
-        }
-        else if (op == "SLEEP" && toks.size() >= 2) {
-            instructions.push_back(new SleepInstruction((uint8_t)stoi(toks[1]), nullptr));
-        }
-        else if (op == "WRITE" && toks.size() >= 3) {
-            uint32_t addr = stoul(toks[1], nullptr, 0);
-            uint16_t val = (uint16_t)stoi(toks[2]);
-            instructions.push_back(new WriteInstruction(addr, val, nullptr));
-        }
-        else if (op == "READ" && toks.size() >= 3) {
-            uint32_t addr = stoul(toks[2], nullptr, 0);
-            instructions.push_back(new ReadInstruction(toks[1], addr, nullptr));
-        }
-        else if (op == "PRINT") {
-            string msg = toks.size() >= 2 ? toks[1] : "";
-            instructions.push_back(new PrintInstruction(msg, nullptr));
-        }
-    }
-
-    if (instructions.empty()) {
-        cout << "No valid instructions parsed." << endl;
-        return;
-    }
-
-    // Create process via scheduler with custom instructions
-    // Note: We'll need to add a method in Scheduler for this
-    cout << "Creating custom process " << name << " with " << instructions.size() << " instructions." << endl;
-
-    // For now, create a regular process and note limitation
-    scheduler.CreateNewProcess(name, memSize);
-    Process* proc = scheduler.GetProcess(name);
-
-    if (proc != nullptr) {
-        cout << "Note: Custom instruction integration requires scheduler enhancement." << endl;
-        DisplayProcessScreen(proc);
-    }
-
-    // Clean up instructions
-    for (auto instr : instructions) {
-        delete instr;
-    }
+    // For now, create a basic process - full parsing would be more complex
+    cout << "User-defined instruction processes not fully implemented yet." << endl;
+    cout << "Creating process with random instructions instead." << endl;
+    CreateScreen(processName, memorySize);
 }
 
 /* Reattaches to an existing process screen.
-   Connects to Scheduler::GetProcess() to retrieve by name. */
+   Connects to Scheduler::GetProcess() to retrieve by name.
+   Now checks for memory access violations and displays error message if applicable. */
 void Console::SearchScreen(const string& processName) {
     Process* proc = scheduler.GetProcess(processName);
 
@@ -252,17 +144,19 @@ void Console::SearchScreen(const string& processName) {
         return;
     }
 
-    // Check for memory violation
-    if (proc->HasMemoryViolation()) {
-        char timeStr[100];
+    if (proc->HasMemoryError()) {
+        time_t errTime = proc->GetMemoryErrorTime();
         tm local_tm;
-        time_t vtime = proc->GetViolationTime();
-        localtime_s(&local_tm, &vtime);
-        strftime(timeStr, sizeof(timeStr), "%H:%M:%S", &local_tm);
+#ifdef _WIN32
+        localtime_s(&local_tm, &errTime);
+#else
+        localtime_r(&errTime, &local_tm);
+#endif
+        char buf[64];
+        strftime(buf, sizeof(buf), "%H:%M:%S", &local_tm);
 
         cout << "Process " << processName << " shut down due to memory access violation error that occurred at "
-            << timeStr << ". 0x" << hex << uppercase << proc->GetViolationAddress()
-            << " invalid." << dec << endl;
+            << buf << ". 0x" << hex << proc->GetMemoryErrorAddress() << dec << " invalid." << endl;
         return;
     }
 
@@ -270,9 +164,9 @@ void Console::SearchScreen(const string& processName) {
 }
 
 /* Clears the screen and opens a dedicated interface for one process.
-   Handles process-specific commands like “process-smi” and “exit”. */
+   Handles process-specific commands like "process-smi" and "exit". */
 void Console::DisplayProcessScreen(Process* proc) {
-    system("cls"); // comment out to see & verify the instruction types generated
+    system(CLEAR_SCREEN);
 
     cout << "Process name: " << proc->GetName() << endl;
 
@@ -283,9 +177,7 @@ void Console::DisplayProcessScreen(Process* proc) {
         getline(cin, command);
 
         if (command == "process-smi") {
-            // Try to assign the process to an idle core if it currently has -1
-            // to fix that -1 huhuhuhu
-            if (proc->GetCoreAssigned() == -1) {
+            if (proc->GetCoreAssigned() == -1 && !proc->IsFinished()) {
                 bool assigned = scheduler.TryAssignProcess(proc);
                 if (assigned) {
                     cout << "Process " << proc->GetName() << " assigned to core " << proc->GetCoreAssigned() << " immediately." << endl;
@@ -295,7 +187,7 @@ void Console::DisplayProcessScreen(Process* proc) {
         }
         else if (command == "exit") {
             inScreen = false;
-            system("cls");
+            system(CLEAR_SCREEN);
         }
         else {
             cout << "Unknown command in process screen." << endl;
@@ -312,7 +204,6 @@ void Console::ListScreens() {
     cout << "Cores available: " << scheduler.GetCoresAvailable() << endl;
     cout << "-----------------------------------------------" << endl << endl;
 
-	// Display running processes
     cout << "Running processes:" << endl;
     auto runningProcs = scheduler.GetRunningProcesses();
     if (runningProcs.empty()) {
@@ -322,7 +213,17 @@ void Console::ListScreens() {
         for (auto proc : runningProcs) {
             time_t now = time(nullptr);
             string ts = FormatTimestamp(now);
-            string status = proc->IsFinished() ? "Finished" : "Running";
+
+            string status;
+            int coreId = proc->GetCoreAssigned();
+
+            if (coreId >= 0) {
+                status = "Core: " + to_string(coreId);
+            }
+            else {
+                status = "Ready";
+            }
+
             cout << proc->GetName() << "   "
                 << "(" << ts << ")" << "   "
                 << status << "   "
@@ -331,7 +232,6 @@ void Console::ListScreens() {
         }
     }
 
-	// Display finished processes
     cout << "\nFinished processes:" << endl;
     auto finishedProcs = scheduler.GetFinishedProcesses();
     if (finishedProcs.empty()) {
@@ -386,9 +286,20 @@ void Console::ReportUtil() {
         for (auto proc : runningProcs) {
             time_t now = time(nullptr);
             string ts = FormatTimestamp(now);
+
+            string status;
+            int coreId = proc->GetCoreAssigned();
+
+            if (coreId >= 0) {
+                status = "Core: " + to_string(coreId);
+            }
+            else {
+                status = "Ready";
+            }
+
             logFile << proc->GetName() << "   "
                 << "(" << ts << ")" << "   "
-				<< "Core: " << proc->GetCoreAssigned() << "   "
+                << status << "   "
                 << proc->GetCurrentLine()
                 << "/" << proc->GetTotalLines() << endl;
         }
@@ -400,10 +311,9 @@ void Console::ReportUtil() {
         logFile << "None" << endl;
     }
     else {
-		// Sort finished processes by finish time 
         for (auto proc : finishedProcs) {
-            time_t now = time(nullptr);
-            string ts = FormatTimestamp(now);
+            time_t tsTime = proc->GetFinishTime();
+            string ts = (tsTime != 0) ? FormatTimestamp(tsTime) : "N/A";
             logFile << proc->GetName() << "   "
                 << "(" << ts << ")" << "   "
                 << "Finished   "
@@ -418,20 +328,69 @@ void Console::ReportUtil() {
     cout << "Report generated: csopesy-log.txt" << endl;
 }
 
-void Console::ProcessSmiGlobal() {
-    if (memVis) {
-        cout << memVis->ProcessSmi(-1) << endl;
+/* Displays system memory information and running process memory usage.
+   New command for MO2: Shows CPU and memory utilization in KiB units.
+   Connects to MemoryManager for memory statistics. */
+void Console::ProcessSMI() {
+    MemoryManager* memMgr = scheduler.GetMemoryManager();
+
+    // Get memory values
+    int usedMem = memMgr->GetUsedMemory();
+    int totalMem = memMgr->GetTotalMemory();
+
+    // Calculate percentages
+    double usedPercent = (totalMem > 0) ? (usedMem * 100.0 / totalMem) : 0.0;
+    double cpuUtil = scheduler.GetCPUUtilization();
+
+    cout << "=============================================" << endl;
+    cout << "| PROCESS-SMI V01.00 Driver Version: 01.00 |" << endl;
+    cout << "=============================================" << endl;
+    cout << "CPU-Util: " << fixed << setprecision(0) << cpuUtil << "%" << endl;
+    cout << "Memory Usage: " << usedMem << "MiB / " << totalMem << "MiB" << endl;
+    cout << "Memory Util: " << fixed << setprecision(0) << usedPercent << "%" << endl;
+    cout << "=============================================" << endl;
+    cout << endl;
+    cout << "Running processes and memory usage:" << endl;
+    cout << "--------------------------------------------" << endl;
+
+    auto runningProcs = scheduler.GetRunningProcesses();
+    if (runningProcs.empty()) {
+        cout << "No running processes." << endl;
     }
     else {
-        cout << "Memory visualizer not initialized." << endl;
+        for (auto proc : runningProcs) {
+            // Convert bytes to MiB for display
+            int memMiB = proc->GetMemorySize() / (1024 * 1024);
+            if (memMiB == 0) memMiB = 1; // Show at least 1MiB for small allocations
+
+            cout << proc->GetName() << " " << memMiB << "MiB" << endl;
+        }
     }
+
+    cout << "--------------------------------------------" << endl;
 }
 
-void Console::VmstatGlobal() {
-    if (memVis) {
-        cout << memVis->Vmstat() << endl;
-    }
-    else {
-        cout << "Memory visualizer not initialized." << endl;
-    }
+/* Displays virtual memory statistics including paging information.
+   New command for MO2: Shows total/used/free memory, CPU tick statistics,
+   and page-in/page-out counts. Saves backing store to file.
+   Connects to MemoryManager and Scheduler for statistics. */
+void Console::VMStat() {
+    MemoryManager* memMgr = scheduler.GetMemoryManager();
+
+    cout << "\n=== VM Statistics ===" << endl;
+    cout << "-----------------------------------------------" << endl;
+    cout << "Total Memory:      " << memMgr->GetTotalMemory() << " bytes" << endl;
+    cout << "Used Memory:       " << memMgr->GetUsedMemory() << " bytes" << endl;
+    cout << "Free Memory:       " << memMgr->GetFreeMemory() << " bytes" << endl;
+    cout << "-----------------------------------------------" << endl;
+    cout << "Idle CPU Ticks:    " << scheduler.GetIdleCpuTicks() << endl;
+    cout << "Active CPU Ticks:  " << scheduler.GetActiveCpuTicks() << endl;
+    cout << "Total CPU Ticks:   " << scheduler.GetCPUTicks() << endl;
+    cout << "-----------------------------------------------" << endl;
+    cout << "Num Paged In:      " << memMgr->GetNumPagedIn() << endl;
+    cout << "Num Paged Out:     " << memMgr->GetNumPagedOut() << endl;
+    cout << "===============================================" << endl;
+
+    // Save backing store
+    memMgr->SaveBackingStore();
 }

@@ -8,6 +8,7 @@
 using namespace std;
 
 class Process;
+class MemoryManager;
 
 class Instruction {
 protected:
@@ -16,7 +17,7 @@ protected:
 public:
     Instruction(Process* proc) : process(proc) {}
     virtual ~Instruction() {}
-    virtual void Execute() = 0;
+    virtual void Execute(MemoryManager* memMgr = nullptr) = 0;
 };
 
 class PrintInstruction : public Instruction {
@@ -25,7 +26,7 @@ private:
 
 public:
     PrintInstruction(const string& msg, Process* proc);
-    void Execute() override;
+    void Execute(MemoryManager* memMgr = nullptr) override;
 };
 
 class DeclareInstruction : public Instruction {
@@ -35,7 +36,7 @@ private:
 
 public:
     DeclareInstruction(const string& var, uint16_t val, Process* proc);
-    void Execute() override;
+    void Execute(MemoryManager* memMgr = nullptr) override;
 };
 
 class AddInstruction : public Instruction {
@@ -47,7 +48,7 @@ private:
 
 public:
     AddInstruction(const string& result, const string& op1, uint16_t op2, Process* proc);
-    void Execute() override;
+    void Execute(MemoryManager* memMgr = nullptr) override;
 };
 
 class SubtractInstruction : public Instruction {
@@ -59,7 +60,7 @@ private:
 
 public:
     SubtractInstruction(const string& result, const string& op1, uint16_t op2, Process* proc);
-    void Execute() override;
+    void Execute(MemoryManager* memMgr = nullptr) override;
 };
 
 class SleepInstruction : public Instruction {
@@ -68,7 +69,7 @@ private:
 
 public:
     SleepInstruction(uint8_t cpuCycles, Process* proc);
-    void Execute() override;
+    void Execute(MemoryManager* memMgr = nullptr) override;
 };
 
 class ForLoopInstruction : public Instruction {
@@ -81,26 +82,31 @@ private:
 public:
     ForLoopInstruction(const vector<Instruction*>& instructions, int numRepeats, Process* proc);
     ~ForLoopInstruction();
-    void Execute() override;
+    void Execute(MemoryManager* memMgr = nullptr) override;
 };
 
+// New MO2 instructions
 class ReadInstruction : public Instruction {
-public:
-    ReadInstruction(const string& varName, uint32_t address, Process* proc);
-    void Execute() override;
 private:
     string varName;
-    uint32_t address;
+    uint32_t memoryAddress;
+
+public:
+    ReadInstruction(const string& var, uint32_t addr, Process* proc);
+    void Execute(MemoryManager* memMgr = nullptr) override;
 };
 
 class WriteInstruction : public Instruction {
-public:
-    WriteInstruction(uint32_t address, uint16_t value, Process* proc);
-    void Execute() override;
-
 private:
-    uint32_t address;
+    uint32_t memoryAddress;
     uint16_t value;
+    string varName;  // If writing from variable
+    bool useVariable;
+
+public:
+    WriteInstruction(uint32_t addr, uint16_t val, Process* proc);
+    WriteInstruction(uint32_t addr, const string& var, Process* proc);
+    void Execute(MemoryManager* memMgr = nullptr) override;
 };
 
 #endif

@@ -6,6 +6,7 @@
 #include <queue>
 #include <map>
 #include "process.h"
+#include "memory.h"
 
 using namespace std;
 
@@ -22,33 +23,40 @@ struct Config {
     int minIns;
     int maxIns;
     int delaysPerExec;
-    size_t maxOverallMem;
-    size_t memPerFrame;
-    size_t minMemPerProc;
-    size_t maxMemPerProc;
+
+    // MO2 memory parameters
+    int maxOverallMem;
+    int memPerFrame;
+    int minMemPerProc;
+    int maxMemPerProc;
 };
 
 class Scheduler {
 private:
     Config config;
-    SchedulerType type;
+    int currentPID;
+    int cpuTicks;
+    int processCounter;
+    bool isRunning;
+    bool hasEverGenerated;
+
     int numCPU;
+    SchedulerType type;
     int quantumCycles;
     int batchProcessFreq;
     int minIns;
     int maxIns;
     int delaysPerExec;
 
-    queue<Process*> readyQueue;
-    vector<Process*> runningProcesses;
     vector<Process*> allProcesses;
+    queue<Process*> readyQueue;
     map<int, Process*> coreAssignments;
     map<Process*, int> processQuantumCounters;
 
-    int currentPID;
-    int cpuTicks;
-    int processCounter;
-    bool isRunning;
+    MemoryManager memoryManager;
+
+    int idleCpuTicks;
+    int activeCpuTicks;
 
     void LoadConfig(const string& filename);
     void ScheduleNext(int coreId);
@@ -62,13 +70,10 @@ public:
     void Start();
     void Stop();
 
-    void CreateNewProcess(const string& name, size_t memSize);
+    void CreateNewProcess(const string& name, int memorySize = -1);
     Process* GetProcess(const string& name);
-    vector<Process*> GetAllProcesses() const { return allProcesses; }
+    bool TryAssignProcess(Process* proc);
 
-    int GetNumCPU() const { return numCPU; }
-    int GetCPUTicks() const { return cpuTicks; }
-    bool IsRunning() const { return isRunning; }
     int GetCoresUsed() const;
     int GetCoresAvailable() const;
     double GetCPUUtilization() const;
@@ -76,7 +81,11 @@ public:
     vector<Process*> GetRunningProcesses() const;
     vector<Process*> GetFinishedProcesses() const;
 
-    bool TryAssignProcess(Process* proc);
+    int GetCPUTicks() const { return cpuTicks; }
+    int GetIdleCpuTicks() const { return idleCpuTicks; }
+    int GetActiveCpuTicks() const { return activeCpuTicks; }
+
+    MemoryManager* GetMemoryManager() { return &memoryManager; }
 };
 
 #endif

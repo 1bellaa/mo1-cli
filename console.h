@@ -1,19 +1,17 @@
 #ifndef CONSOLE_H
 #define CONSOLE_H
 
-#include <string>
 #include <thread>
-#include <atomic>
 #include "scheduler.h"
 
 using namespace std;
 
 class Console {
 private:
-    bool initialized;
     Scheduler scheduler;
+    bool initialized;
     thread* tickThread;
-    atomic<bool> shouldRunTicks;
+    bool shouldRunTicks;
 
     void TickLoop();
     void DisplayProcessScreen(Process* proc);
@@ -25,17 +23,18 @@ public:
     void Initialize();
     bool IsInitialized() const { return initialized; }
 
-    void CreateScreen(const string& processName);
+    void CreateScreen(const string& processName, int memorySize);
+    void CreateScreenWithInstructions(const string& processName, int memorySize, const string& instructions);
     void SearchScreen(const string& processName);
-    void CreateCustomScreen(const string& args);
     void ListScreens();
 
     void SchedulerStart();
     void SchedulerStop();
     void ReportUtil();
 
-    void ProcessSmiGlobal();
-    void VmstatGlobal();
+    // New MO2 commands
+    void ProcessSMI();
+    void VMStat();
 };
 
 #endif

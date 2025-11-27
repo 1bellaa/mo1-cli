@@ -1,23 +1,24 @@
-/* Barebone instruction implementation */
+/* Barebone instruction implementation with memory management operations */
 
 #include <iostream>
 #include <sstream>
-#include <ctime>
-#include <iomanip>
 #include "instruction.h"
 #include "process.h"
+#include "memory.h"
 
 using namespace std;
 
 /* PRINT instruction: Logs a message with timestamp and CPU core ID.
-   Called by Process::Execute() and stored via Process::AddOutput(). */
+   Called by Process::Execute() and stored via Process::AddOutput().
+   Now accepts MemoryManager parameter for consistency with other instructions. */
 PrintInstruction::PrintInstruction(const string& msg, Process* proc)
     : Instruction(proc), message(msg) {
 }
 
 /* Executes the PRINT command. Creates formatted timestamp and core info.
+   Prints the value of variable "x" in the message.
    Connects with Process::AddOutput() to record output into process logs. */
-void PrintInstruction::Execute() {
+void PrintInstruction::Execute(MemoryManager* memMgr) {
     time_t now = time(nullptr);
     tm local_tm;
     localtime_s(&local_tm, &now);
@@ -25,20 +26,23 @@ void PrintInstruction::Execute() {
     strftime(buf, sizeof(buf), "(%m/%d/%Y %I:%M:%S %p)", &local_tm);
 
     int core = process->GetCoreAssigned();
-    string logEntry = string(buf) + " Core:" + to_string(core) + " \"" + message + "\"";
+    uint16_t xValue = process->GetVariable("x");
+
+    string logEntry = string(buf) + " Core:" + to_string(core) + " \"" + message + " " + to_string(xValue) + "\"";
     process->AddOutput(logEntry);
 }
 
 /* DECLARE instruction: Creates a variable and assigns an initial value.
-   Used to simulate variable declaration in the process’s memory. */
+   Used to simulate variable declaration in the process's memory.
+   Now uses Process::DeclareVariable() which enforces 32-variable limit. */
 DeclareInstruction::DeclareInstruction(const string& var, uint16_t val, Process* proc)
     : Instruction(proc), varName(var), value(val) {
 }
 
-/* Executes DECLARE by setting the variable’s value.
-   Connects to Process::SetVariable(). */
-void DeclareInstruction::Execute() {
-    process->SetVariable(varName, value);
+/* Executes DECLARE by setting the variable's value.
+   Connects to Process::DeclareVariable() which checks symbol table size limit. */
+void DeclareInstruction::Execute(MemoryManager* memMgr) {
+    process->DeclareVariable(varName, value);
 }
 
 /* ADD instruction: Performs integer addition between variable and/or constant values.
@@ -48,7 +52,7 @@ AddInstruction::AddInstruction(const string& result, const string& op1, uint16_t
 }
 
 /* Executes ADD instruction, reads operand, computes sum, and saves result. */
-void AddInstruction::Execute() {
+void AddInstruction::Execute(MemoryManager* memMgr) {
     uint16_t val1 = process->GetVariable(operand1);
     uint32_t result = static_cast<uint32_t>(val1) + static_cast<uint32_t>(operand2);
 
@@ -66,7 +70,7 @@ SubtractInstruction::SubtractInstruction(const string& result, const string& op1
 }
 
 /* Executes SUBTRACT instruction by computing op1 - op2 and updating target variable. */
-void SubtractInstruction::Execute() {
+void SubtractInstruction::Execute(MemoryManager* memMgr) {
     uint16_t val1 = process->GetVariable(operand1);
     int32_t result = static_cast<int32_t>(val1) - static_cast<int32_t>(operand2);
 
@@ -83,9 +87,9 @@ SleepInstruction::SleepInstruction(uint8_t cpuCycles, Process* proc)
     : Instruction(proc), cycles(cpuCycles) {
 }
 
-/* Executes SLEEP by setting process state and defining wait cycles.
+/* Executes SLEEP by setting process state to WAITING.
    Scheduler later decrements wait time during Tick(). */
-void SleepInstruction::Execute() {
+void SleepInstruction::Execute(MemoryManager* memMgr) {
     process->SetState(WAITING);
 }
 
@@ -104,11 +108,12 @@ ForLoopInstruction::~ForLoopInstruction() {
 }
 
 /* Executes FOR loop by repeatedly executing each inner instruction for N iterations.
-   Connects to other Instruction types and simulates simple looping logic. */
-void ForLoopInstruction::Execute() {
+   Connects to other Instruction types and simulates simple looping logic.
+   Now passes MemoryManager to nested instruction execution. */
+void ForLoopInstruction::Execute(MemoryManager* memMgr) {
     if (currentIteration < repeats) {
         if (currentInstructionIndex < loopInstructions.size()) {
-            loopInstructions[currentInstructionIndex]->Execute();
+            loopInstructions[currentInstructionIndex]->Execute(memMgr);
             currentInstructionIndex++;
 
             if (currentInstructionIndex >= loopInstructions.size()) {
@@ -117,45 +122,61 @@ void ForLoopInstruction::Execute() {
             }
         }
     }
-    /*if (currentIteration < repeats) {
-        loopInstructions[currentInstructionIndex]->Execute();
-        currentInstructionIndex++;
-
-        if (currentInstructionIndex >= loopInstructions.size()) {
-            currentInstructionIndex = 0;
-            currentIteration++;
-        }
-    }*/
 }
 
-/* READ instruction: reads uint16 value from process memory and stores in variable. */ 
-ReadInstruction::ReadInstruction(const string& varName_, uint32_t address_, Process* proc)
-    : Instruction(proc), varName(varName_), address(address_) {
+/* READ instruction: Reads a uint16 value from a memory address into a variable.
+   New for MO2: Simulates memory access with demand paging.
+   Throws runtime_error on memory access violation. */
+ReadInstruction::ReadInstruction(const string& var, uint32_t addr, Process* proc)
+    : Instruction(proc), varName(var), memoryAddress(addr) {
 }
 
-/* Executes READ instruction: reads uint16 value from process memory and stores in variable. */
-void ReadInstruction::Execute() {
-    uint16_t val = 0;
-    string err;
-    bool ok = process->ReadMemory(address, val, err);
-    if (!ok) {
-        // Process will have been shut down by ReadMemory on error; log if needed
+/* Executes READ by calling Process::ReadMemoryAddress() which handles
+   page faults through the memory manager. Stores result in target variable.
+   Throws runtime_error if address is invalid (caught by Process::Execute). */
+void ReadInstruction::Execute(MemoryManager* memMgr) {
+    if (memMgr == nullptr) {
+        cerr << "Error: Memory manager not available" << endl;
         return;
     }
-    process->SetVariable(varName, val);
+
+    try {
+        uint16_t value = process->ReadMemoryAddress(memoryAddress, memMgr);
+        process->SetVariable(varName, value);
+    }
+    catch (const runtime_error& e) {
+        // Memory access violation handled in process
+        throw;
+    }
 }
 
-/* WRITE instruction: writes uint16 value to process virtual address. */
-WriteInstruction::WriteInstruction(uint32_t address_, uint16_t value_, Process* proc)
-    : Instruction(proc), address(address_), value(value_) {
+/* WRITE instruction: Writes a uint16 value (constant or variable) to a memory address.
+   New for MO2: Simulates memory access with demand paging.
+   Throws runtime_error on memory access violation. */
+WriteInstruction::WriteInstruction(uint32_t addr, uint16_t val, Process* proc)
+    : Instruction(proc), memoryAddress(addr), value(val), useVariable(false) {
 }
 
-/* Executes WRITE instruction */
-void WriteInstruction::Execute() {
-    string err;
-    bool ok = process->WriteMemory(address, value, err);
-    if (!ok) {
-        // Process shutdown handled inside WriteMemory
+/* Constructor overload: WRITE instruction using a variable as the value source. */
+WriteInstruction::WriteInstruction(uint32_t addr, const string& var, Process* proc)
+    : Instruction(proc), memoryAddress(addr), varName(var), value(0), useVariable(true) {
+}
+
+/* Executes WRITE by calling Process::WriteMemoryAddress() which handles
+   page faults through the memory manager. Can write constant or variable value.
+   Throws runtime_error if address is invalid (caught by Process::Execute). */
+void WriteInstruction::Execute(MemoryManager* memMgr) {
+    if (memMgr == nullptr) {
+        cerr << "Error: Memory manager not available" << endl;
         return;
+    }
+
+    try {
+        uint16_t writeValue = useVariable ? process->GetVariable(varName) : value;
+        process->WriteMemoryAddress(memoryAddress, writeValue, memMgr);
+    }
+    catch (const runtime_error& e) {
+        // Memory access violation handled in process
+        throw;
     }
 }

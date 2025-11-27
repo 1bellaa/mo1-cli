@@ -4,8 +4,9 @@
 #include <string>
 #include <vector>
 #include <map>
-#include <cstdint>
+#include <queue>
 #include "instruction.h"
+#include "memory.h"
 
 using namespace std;
 
@@ -16,8 +17,6 @@ enum ProcessState {
     FINISHED
 };
 
-//class Instruction; 
-
 class Process {
 private:
     string name;
@@ -25,65 +24,63 @@ private:
     ProcessState state;
     int currentLine;
     int totalLines;
-    vector<Instruction*> instructions;
-    map<string, uint16_t> variables;
-    vector<string> outputLog;
     int coreAssigned;
     int waitCycles;
     int executionTime;
     int delayCounter;
     time_t finishTime;
 
-    size_t memorySize;
-    map<size_t, uint16_t> memoryMap;  // Virtual memory storage (address -> value)
-    bool hasMemoryViolation;
-    time_t violationTime;
-    size_t violationAddress;
+    // Memory management
+    int memorySize;
+    vector<PageTableEntry> pageTable;
+    map<string, uint16_t> variables;  // Symbol table (max 32 variables)
+    bool hasMemoryError;
+    time_t memoryErrorTime;
+    uint32_t memoryErrorAddress;
+
+    vector<Instruction*> instructions;
+    vector<string> outputLog;
 
 public:
-    //Process(string processName, int processId, int numInstructions, int delaysPerExec);
-    Process(string processName, int processId, int numInstructions, int delaysPerExec, size_t memSize = 0);
+    Process(string processName, int processId, int numInstructions, int delaysPerExec, int memSize = 256);
     ~Process();
 
-    void Execute(int coreId);
+    void Execute(int coreId, class MemoryManager* memMgr);
     bool IsFinished() const;
     void PrintInfo() const;
+    void AddOutput(const string& output);
 
+    // Memory operations
+    uint16_t GetVariable(const string& varName);
+    void SetVariable(const string& varName, uint16_t value);
+    bool DeclareVariable(const string& varName, uint16_t value);
+
+    uint16_t ReadMemoryAddress(uint32_t address, class MemoryManager* memMgr);
+    void WriteMemoryAddress(uint32_t address, uint16_t value, class MemoryManager* memMgr);
+
+    // Getters
     string GetName() const { return name; }
     int GetPID() const { return pid; }
     ProcessState GetState() const { return state; }
-    void SetState(ProcessState newState) { state = newState; }
     int GetCurrentLine() const { return currentLine; }
     int GetTotalLines() const { return totalLines; }
     int GetCoreAssigned() const { return coreAssigned; }
-    void SetCoreAssigned(int core) { coreAssigned = core; }
     int GetWaitCycles() const { return waitCycles; }
-    void DecrementWait() { if (waitCycles > 0) waitCycles--; }
     int GetExecutionTime() const { return executionTime; }
-    void IncrementExecutionTime() { executionTime++; }
-
-    void AddOutput(const string& output);
-    vector<string> GetOutputLog() const { return outputLog; }
-
-    uint16_t GetVariable(const string& varName);
-    void SetVariable(const string& varName, uint16_t value);
-    int GetVariableCount() const { return variables.size(); }
-
-    void SetFinishTime(time_t t) { finishTime = t; }
     time_t GetFinishTime() const { return finishTime; }
+    int GetMemorySize() const { return memorySize; }
+    bool HasMemoryError() const { return hasMemoryError; }
+    time_t GetMemoryErrorTime() const { return memoryErrorTime; }
+    uint32_t GetMemoryErrorAddress() const { return memoryErrorAddress; }
 
-    size_t GetMemorySize() const { return memorySize; }
-    void SetMemorySize(size_t size) { memorySize = size; }
-	uint16_t ReadFromMemory(size_t address); // implement later
-	void WriteToMemory(size_t address, uint16_t value); // implement later
+    // Setters
+    void SetState(ProcessState s) { state = s; }
+    void SetCoreAssigned(int core) { coreAssigned = core; }
+    void SetFinishTime(time_t t) { finishTime = t; }
+    void IncrementExecutionTime() { executionTime++; }
+    void DecrementWait() { if (waitCycles > 0) waitCycles--; }
 
-    bool HasMemoryViolation() const { return hasMemoryViolation; } 
-    void SetMemoryViolation(size_t address); // implement later ndjkfns
-    time_t GetViolationTime() const { return violationTime; }
-    size_t GetViolationAddress() const { return violationAddress; }
-
-    void AddInstruction(Instruction* instr);
-    void ClearInstructions();
+    vector<PageTableEntry>& GetPageTable() { return pageTable; }
 };
 
 #endif
